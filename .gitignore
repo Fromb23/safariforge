@@ -10,5 +10,6 @@ runtime/
 *.sqlite-wal
 playwright-report/
 test-results/
+artifacts/
 .idea/
 *.log
