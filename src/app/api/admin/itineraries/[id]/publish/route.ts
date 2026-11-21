@@ -1,2 +1,0 @@
-import { requireAdminMutation } from "@/lib/auth";import { publish } from "@/lib/documents";import { apiError, privateJson } from "@/lib/http";
-export async function POST(request:Request,{params}:{params:Promise<{id:string}>}){try{await requireAdminMutation(request);const body=await request.json() as {document:unknown;revisionId:string;revisionVersion:number};return privateJson(publish((await params).id,body.document as never,body.revisionId,body.revisionVersion));}catch(e){return apiError(e)}}

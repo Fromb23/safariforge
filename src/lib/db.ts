@@ -67,14 +67,6 @@ export function db() {
     fs.mkdirSync(path.dirname(config.databasePath), { recursive: true });
     const instance = new DatabaseSync(config.databasePath) as SafariDb;
     instance.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
-    instance.exec(schema);
-    const ensureColumn = (table: string, column: string, definition: string) => {
-      const columns = instance.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
-      if (!columns.some((item) => item.name === column)) instance.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
-    };
-    ensureColumn("credentials", "itinerary_id", "TEXT");
-    ensureColumn("sessions", "itinerary_id", "TEXT");
-    ensureColumn("revisions", "version", "INTEGER NOT NULL DEFAULT 1");
     instance.transaction = <T>(fn: () => T) => () => {
       instance.exec("BEGIN IMMEDIATE");
       try { const result = fn(); instance.exec("COMMIT"); return result; }
@@ -85,4 +77,15 @@ export function db() {
   return globalDb.safariDb;
 }
 
-export function migrate() { db(); }
+/** Explicit, additive and idempotent migration entry point. Never called by read paths. */
+export function migrate() {
+  const instance=db();
+  instance.exec(schema);
+  const ensureColumn = (table: string, column: string, definition: string) => {
+    const columns = instance.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+    if (!columns.some((item) => item.name === column)) instance.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  };
+  ensureColumn("credentials", "itinerary_id", "TEXT");
+  ensureColumn("sessions", "itinerary_id", "TEXT");
+  ensureColumn("revisions", "version", "INTEGER NOT NULL DEFAULT 1");
+}

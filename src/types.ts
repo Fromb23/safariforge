@@ -29,9 +29,11 @@ export type LeftPanel = {
   startDate?: string;
   endDate?: string;
   heroMediaId?: string;
-  overlayPosition?: "bottom-left" | "center-left";
+  /** center-left is retained only for safely rendering historical snapshots. */
+  overlayPosition?: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center-left";
   objectPosition?: string;
 };
+export type MediaAllocation = { media_id: string; page_id: string; page_title: string };
 export type SafariPageDocument = {
   leftPanel: LeftPanel;
   rightPanel: { blocks: ContentBlock[] };

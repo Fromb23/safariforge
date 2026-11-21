@@ -1,4 +1,4 @@
 import type { Metadata } from "next";
 import "./globals.css";
-export const metadata:Metadata={title:"SafariForge — Private Journey Journal",description:"Private, beautifully crafted safari itineraries.",robots:{index:false,follow:false}};
+export const metadata:Metadata={title:"SafariForge — Safari Journal",description:"A public journal of published safari stories.",robots:{index:true,follow:true}};
 export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}

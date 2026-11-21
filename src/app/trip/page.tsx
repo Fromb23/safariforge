@@ -1,2 +1,2 @@
-import { getSession } from "@/lib/auth";import { listMedia } from "@/lib/documents";import { listPublishedPages,pageMediaIds } from "@/lib/pages";import { PrivateAccess } from "@/components/PrivateAccess";import { SafariJournalRenderer } from "@/components/SafariJournalRenderer";
-export const dynamic="force-dynamic";export default async function TripPage(){if(!await getSession("TRAVELER"))return <PrivateAccess role="traveler"/>;const pages=listPublishedPages();if(!pages.length)return <main className="empty-state"><p className="eyebrow">SafariForge</p><h1>Your safari journal is being prepared.</h1><p>Published pages will appear here soon.</p></main>;const ids=new Set(pages.flatMap(page=>pageMediaIds(page.document)));return <SafariJournalRenderer pages={pages.map(page=>({id:page.id,document:page.document}))} media={listMedia().filter(item=>ids.has(item.id))}/>}
+import { redirect } from "next/navigation";
+export default function LegacyTrip(){redirect("/")}
