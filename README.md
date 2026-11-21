@@ -51,12 +51,13 @@ npm run dev
 Production deployment is intentionally manual:
 
 1. Back up the configured SQLite database, including `-wal`/`-shm` files when present, and the entire media directory as one consistent backup.
-2. Fetch the release commit on the production host and install with `npm ci --omit=dev --no-audit --no-fund`.
+2. Fetch the release commit on the production host and install build/migration tooling with `npm ci --include=dev --no-audit --no-fund`.
 3. Keep `DATABASE_PATH`, `MEDIA_STORAGE_DIR`, `NEXT_PUBLIC_SITE_URL`, `TOKEN_HASH_KEY`, `SESSION_HOURS`, and `MAX_IMAGE_BYTES` unchanged.
 4. Run `npm run db:migrate` exactly once; rerunning is safe.
 5. Do **not** run `seed` or `images:import` in production.
-6. Restart the existing Next.js service.
-7. In a clean browser, verify `/` without cookies, verify `/admin` still requires the admin link, inspect page inclusion, and test one published media URL plus one draft-only media URL.
+6. Run `npm run build`, then optionally remove build-only packages with `npm prune --omit=dev`.
+7. Restart the existing Next.js service.
+8. In a clean browser, verify `/` without cookies, verify `/admin` still requires the admin link, inspect page inclusion, and test one published media URL plus one draft-only media URL.
 
 Rollback uses the pre-deployment database and media backup together with the previous application release. No deployment is performed by this repository workflow.
 
