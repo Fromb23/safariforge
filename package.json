@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:e2e": "tsx scripts/verify-e2e.ts",
     "db:migrate": "tsx scripts/migrate.ts",
     "access": "tsx scripts/access.ts",
     "images:import": "tsx scripts/import-images.ts",

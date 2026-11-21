@@ -1,0 +1,6 @@
+import { requireAdminMutation, requireSession } from "@/lib/auth";
+import { deletePage, getPage, savePage, setJournalInclusion } from "@/lib/pages";
+import { apiError, privateJson } from "@/lib/http";
+export async function GET(_request:Request,{params}:{params:Promise<{id:string}>}){try{await requireSession("ADMIN");const page=getPage((await params).id,'draft');return page?privateJson(page):privateJson({error:"Not found"},{status:404});}catch(error){return apiError(error)}}
+export async function PUT(request:Request,{params}:{params:Promise<{id:string}>}){try{await requireAdminMutation(request);const body=await request.json() as {document:never;revisionId:string;revisionVersion:number;journalIncluded?:boolean};const id=(await params).id;if(typeof body.journalIncluded==='boolean'){setJournalInclusion(id,body.journalIncluded);return privateJson({ok:true});}return privateJson(savePage(id,body.document,body.revisionId,body.revisionVersion));}catch(error){return apiError(error)}}
+export async function DELETE(request:Request,{params}:{params:Promise<{id:string}>}){try{await requireAdminMutation(request);deletePage((await params).id);return privateJson({ok:true});}catch(error){return apiError(error)}}

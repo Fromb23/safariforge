@@ -134,6 +134,8 @@ function Block({
 }) {
   if (block.type === "heading")
     return block.text.trim() ? <h3>{block.text}</h3> : null;
+  if (block.type === "subtitle")
+    return block.text.trim() ? <p className="editorial-subtitle">{block.text}</p> : null;
   if (block.type === "paragraph")
     return block.text.trim() ? <p>{block.text}</p> : null;
   if (block.type === "list")

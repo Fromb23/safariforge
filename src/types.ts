@@ -2,6 +2,7 @@ export type Role = "ADMIN" | "TRAVELER";
 export type Fact = { label: string; value: string };
 export type ContentBlock =
   | { id: string; type: "heading"; text: string }
+  | { id: string; type: "subtitle"; text: string }
   | { id: string; type: "paragraph"; text: string }
   | { id: string; type: "list"; items: string[] }
   | { id: string; type: "facts"; title: string; items: Fact[] }
@@ -20,3 +21,32 @@ export type MediaRecord = {
 };
 export type TemplateRecord = { id: string; name: string; description: string; blocks: ContentBlock[]; updatedAt: string };
 export type RevisionSummary = { id: string; number: number; state: string; publishedAt: string | null; updatedAt: string };
+
+export type LeftPanel = {
+  eyebrow?: string;
+  title: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  heroMediaId?: string;
+  overlayPosition?: "bottom-left" | "center-left";
+  objectPosition?: string;
+};
+export type SafariPageDocument = {
+  leftPanel: LeftPanel;
+  rightPanel: { blocks: ContentBlock[] };
+};
+export type SafariPageStatus = "DRAFT" | "PUBLISHED" | "UNPUBLISHED" | "UNPUBLISHED_CHANGES";
+export type SafariPageSummary = {
+  id: string;
+  title: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  heroMediaId?: string;
+  sortOrder: number;
+  status: SafariPageStatus;
+  journalIncluded: boolean;
+  updatedAt: string;
+  publishedAt: string | null;
+};

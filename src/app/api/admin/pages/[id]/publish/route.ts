@@ -1,0 +1,3 @@
+import { requireAdminMutation } from "@/lib/auth";import { publishPage } from "@/lib/pages";import { apiError,privateJson } from "@/lib/http";
+import { getPage } from "@/lib/pages";
+export async function POST(request:Request,{params}:{params:Promise<{id:string}>}){try{await requireAdminMutation(request);const id=(await params).id;const body=await request.json().catch(()=>({})) as {document?:never;revisionId?:string;revisionVersion?:number};const draft=getPage(id,'draft');if(!draft)throw new Error('Safari Page not found.');return privateJson(publishPage(id,body.document||draft.document,body.revisionId||draft.revisionId,body.revisionVersion??draft.revisionVersion));}catch(error){return apiError(error)}}

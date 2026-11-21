@@ -422,22 +422,6 @@ export function deleteItinerary(id: string) {
     db().prepare("DELETE FROM itineraries WHERE id=?").run(id);
   })();
 }
-export function assignTravelerItinerary(id: string) {
-  if (!db().prepare("SELECT 1 FROM itineraries WHERE id=?").get(id))
-    throw new Error("Itinerary not found.");
-  db().transaction(() => {
-    const result = db()
-      .prepare("UPDATE credentials SET itinerary_id=? WHERE role='TRAVELER'")
-      .run(id);
-    if (!result.changes)
-      throw new Error(
-        "Provision the traveler credential before assigning an itinerary.",
-      );
-    db()
-      .prepare("UPDATE sessions SET itinerary_id=? WHERE role='TRAVELER'")
-      .run(id);
-  })();
-}
 export function listMedia(): MediaRecord[] {
   return (
     db()
@@ -514,8 +498,8 @@ export function updateMedia(id: string, tags: string[], altText: string) {
 export function deleteMediaRecord(id: string) {
   if (
     db()
-      .prepare("SELECT 1 FROM revision_media WHERE media_id=? LIMIT 1")
-      .get(id)
+      .prepare("SELECT 1 FROM revision_media WHERE media_id=? UNION ALL SELECT 1 FROM safari_page_revision_media WHERE media_id=? LIMIT 1")
+      .get(id,id)
   )
     throw new Error(
       "This image is referenced by a retained revision and cannot be deleted.",
@@ -573,6 +557,7 @@ export function deleteTemplate(id: string) {
 export function newBlock(type: ContentBlock["type"]): ContentBlock {
   const id = randomUUID();
   if (type === "heading") return { id, type, text: "A sense of place" };
+  if (type === "subtitle") return { id, type, text: "Tailor made travel" };
   if (type === "paragraph")
     return {
       id,

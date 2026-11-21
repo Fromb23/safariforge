@@ -15,6 +15,7 @@ const uid = () => crypto.randomUUID();
 const snapshot = (value: ItineraryDocument) => JSON.stringify(value);
 function block(type: ContentBlock["type"]): ContentBlock {
   if (type === "heading") return { id: uid(), type, text: "New heading" };
+  if (type === "subtitle") return { id: uid(), type, text: "Tailor made travel" };
   if (type === "paragraph")
     return { id: uid(), type, text: "Write the story of this moment." };
   if (type === "list") return { id: uid(), type, items: ["New detail"] };
@@ -160,7 +161,7 @@ function BlockEditor({
 }) {
   const [pick, setPick] = useState(false);
   let fields: React.ReactNode;
-  if (value.type === "heading" || value.type === "paragraph")
+  if (value.type === "heading" || value.type === "subtitle" || value.type === "paragraph")
     fields = (
       <textarea
         rows={value.type === "heading" ? 1 : 5}

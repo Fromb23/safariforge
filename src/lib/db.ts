@@ -39,6 +39,24 @@ CREATE TABLE IF NOT EXISTS revision_media (
   FOREIGN KEY(revision_id) REFERENCES revisions(id) ON DELETE CASCADE,
   FOREIGN KEY(media_id) REFERENCES media(id) ON DELETE RESTRICT
 );
+CREATE TABLE IF NOT EXISTS safari_pages (
+  id TEXT PRIMARY KEY, draft_revision_id TEXT NOT NULL, published_revision_id TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0, journal_included INTEGER NOT NULL DEFAULT 1,
+  source_itinerary_id TEXT, source_section_id TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  UNIQUE(source_itinerary_id, source_section_id)
+);
+CREATE TABLE IF NOT EXISTS safari_page_revisions (
+  id TEXT PRIMARY KEY, page_id TEXT NOT NULL, number INTEGER NOT NULL, state TEXT NOT NULL,
+  document_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
+  published_at TEXT, version INTEGER NOT NULL DEFAULT 1,
+  FOREIGN KEY(page_id) REFERENCES safari_pages(id) ON DELETE CASCADE, UNIQUE(page_id, number)
+);
+CREATE TABLE IF NOT EXISTS safari_page_revision_media (
+  revision_id TEXT NOT NULL, media_id TEXT NOT NULL, PRIMARY KEY(revision_id, media_id),
+  FOREIGN KEY(revision_id) REFERENCES safari_page_revisions(id) ON DELETE CASCADE,
+  FOREIGN KEY(media_id) REFERENCES media(id) ON DELETE RESTRICT
+);
+CREATE INDEX IF NOT EXISTS safari_pages_order ON safari_pages(journal_included, sort_order);
 `;
 
 type SafariDb = DatabaseSync & { transaction<T>(fn: () => T): () => T };
@@ -57,11 +75,6 @@ export function db() {
     ensureColumn("credentials", "itinerary_id", "TEXT");
     ensureColumn("sessions", "itinerary_id", "TEXT");
     ensureColumn("revisions", "version", "INTEGER NOT NULL DEFAULT 1");
-    const published = instance.prepare("SELECT id FROM itineraries WHERE published_revision_id IS NOT NULL ORDER BY created_at").all() as Array<{id:string}>;
-    if (published.length === 1) {
-      instance.prepare("UPDATE credentials SET itinerary_id=? WHERE role='TRAVELER' AND itinerary_id IS NULL").run(published[0].id);
-      instance.prepare("UPDATE sessions SET itinerary_id=? WHERE role='TRAVELER' AND itinerary_id IS NULL").run(published[0].id);
-    }
     instance.transaction = <T>(fn: () => T) => () => {
       instance.exec("BEGIN IMMEDIATE");
       try { const result = fn(); instance.exec("COMMIT"); return result; }
