@@ -439,11 +439,12 @@ export function Editor({
       setMessage(
         `Published revision ${result.published.revisionNumber}. A clean new draft is ready.`,
       );
-      setRevisions(
-        await fetch(`/api/admin/itineraries/${id}/revisions`)
-          .then((response) => response.json())
-          .then((value) => value.revisions || []),
-      );
+      void fetch(`/api/admin/itineraries/${id}/revisions`, {
+        credentials: "same-origin",
+      })
+        .then((response) => response.json())
+        .then((value) => setRevisions(value.revisions || []))
+        .catch(() => {});
     } catch (reason) {
       if (token === operation.current)
         setError(reason instanceof Error ? reason.message : "Publish failed");
