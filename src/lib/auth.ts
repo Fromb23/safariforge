@@ -4,16 +4,16 @@ import { config } from "./config";
 import { CSRF_COOKIE, csrfForSession, randomToken, safeEqual, secretHash, SESSION_COOKIES, sessionIsCurrent } from "./auth-core";
 import type { Role } from "@/types";
 
-type Credential = { role: Role; token_hash: string; version: number };
-export type Session = { id: string; role: Role; credential_version: number; expires_at: string; csrf_hash: string };
+type Credential = { role: Role; token_hash: string; version: number; itinerary_id: string | null };
+export type Session = { id: string; role: Role; credential_version: number; expires_at: string; csrf_hash: string; itinerary_id: string | null };
 export async function exchangeToken(role: Role, token: string) {
   if (token.length < 40) return null;
-  const credential = db().prepare("SELECT role, token_hash, version FROM credentials WHERE role = ?").get(role) as Credential | undefined;
+  const credential = db().prepare("SELECT role, token_hash, version, itinerary_id FROM credentials WHERE role = ?").get(role) as Credential | undefined;
   if (!credential || !safeEqual(credential.token_hash, secretHash(token))) return null;
   const id = randomToken(18); const sessionToken = randomToken(); const csrfToken = csrfForSession(id);
   const expiresAt = new Date(Date.now() + config.sessionHours * 3_600_000).toISOString();
-  db().prepare("INSERT INTO sessions (id, session_hash, csrf_hash, role, credential_version, expires_at) VALUES (?, ?, ?, ?, ?, ?)")
-    .run(id, secretHash(sessionToken), secretHash(csrfToken), role, credential.version, expiresAt);
+  db().prepare("INSERT INTO sessions (id, session_hash, csrf_hash, role, credential_version, expires_at, itinerary_id) VALUES (?, ?, ?, ?, ?, ?, ?)")
+    .run(id, secretHash(sessionToken), secretHash(csrfToken), role, credential.version, expiresAt, credential.itinerary_id);
   return { sessionToken, csrfToken, expiresAt };
 }
 export async function getSession(role?: Role): Promise<Session | null> {

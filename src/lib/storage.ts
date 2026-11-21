@@ -25,3 +25,6 @@ export async function persistUpload(body: ReadableStream<Uint8Array>|null, origi
   try { while(true){const {done,value}=await reader.read();if(done)break;total+=value.byteLength;if(total>config.maxImageBytes)throw new Error("Image exceeds MAX_IMAGE_BYTES.");await handle.write(value);} } finally {await handle.close();}
   try{return await importImage(temp,originalName,tags,altText);}finally{await fsp.rm(temp,{force:true});}
 }
+export async function removeStoredMedia(row:{storage_key:string;thumbnail_key:string}) {
+  await Promise.all([row.storage_key,row.thumbnail_key].map(async key=>{try{await fsp.rm(storagePath(key));}catch(error){if((error as NodeJS.ErrnoException).code!=="ENOENT")throw error;}}));
+}

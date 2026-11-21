@@ -5,7 +5,7 @@ export type ContentBlock =
   | { id: string; type: "paragraph"; text: string }
   | { id: string; type: "list"; items: string[] }
   | { id: string; type: "facts"; title: string; items: Fact[] }
-  | { id: string; type: "imageGrid" | "gallery"; mediaIds: string[] };
+  | { id: string; type: "imageGrid" | "carousel" | "gallery"; mediaIds: string[] };
 export type ItinerarySection = {
   id: string; title: string; startDate?: string; endDate?: string; location?: string;
   heroMediaId?: string; templateId?: string; blocks: ContentBlock[];
@@ -19,3 +19,4 @@ export type MediaRecord = {
   tags: string[]; altText: string; createdAt: string;
 };
 export type TemplateRecord = { id: string; name: string; description: string; blocks: ContentBlock[]; updatedAt: string };
+export type RevisionSummary = { id: string; number: number; state: string; publishedAt: string | null; updatedAt: string };

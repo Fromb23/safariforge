@@ -7,11 +7,11 @@ SafariForge is a private itinerary journal and instructor workspace built with N
 Two independent bearer links establish role-specific sessions:
 
 - **Admin/instructor** exchanges once for an HttpOnly admin session, then redirects to `/admin`. Admin mutations require a matching CSRF cookie/header and the canonical origin.
-- **Traveler** exchanges once for an HttpOnly traveler session, then redirects to `/trip`. It can read only the current published itinerary and media referenced by that revision.
+- **Traveler** exchanges once for an HttpOnly traveler session, then redirects to `/trip`. The session is bound to an explicitly assigned itinerary and can read only that itinerary's active publication and referenced media.
 
 Only an HMAC-SHA-256 hash of each bearer token is stored. Sessions record their credential version, so rotating one link invalidates that role's sessions without affecting the other role. Clean page and media URLs are not credentials. All private responses are `private, no-store`, deny indexing, and use a no-referrer policy.
 
-Publishing promotes one fully validated draft revision and creates a fresh editable draft in the same SQLite transaction. Existing traveler content remains unchanged during draft, template, and media metadata edits. Published revisions retain protected references to every media asset they use.
+Publishing validates and stores the exact editor document, promotes it, and creates a section-free editable successor in the same SQLite transaction. Saves and publishes use a monotonic revision version, so stale tabs receive a conflict instead of overwriting newer work. Existing traveler content remains unchanged during draft, template, and media metadata edits. Published revisions retain protected references to every media asset they use.
 
 ## PowerShell setup
 
@@ -24,7 +24,7 @@ npm run db:migrate
 npm run images:import
 npm run seed
 npm run access -- provision admin
-npm run access -- provision traveler
+npm run access -- provision traveler <itinerary-id-or-slug>
 npm run dev
 ```
 
@@ -63,7 +63,7 @@ npm run seed
 
 The seed creates four reusable templates—Welcome, Trip Overview, Safari Day, and Lodge Stay—and a complete published northern Tanzania itinerary with a fresh editable draft. It uses the real imported media throughout heroes, grids, and galleries.
 
-For production, copy the unchanged source archive to a deployment-controlled location or retain the tracked archive in the release, set `SOURCE_IMAGE_ARCHIVE`, `DATABASE_PATH`, and `MEDIA_STORAGE_DIR` to persistent paths, then run `npm run db:migrate`, `npm run images:import`, and `npm run seed` once. Back up the SQLite database and media directory together.
+Starter import and seeding are development/demo operations; do not run them against an established production database. For production upgrades, keep `DATABASE_PATH` and `MEDIA_STORAGE_DIR` pointed at their existing persistent locations, back both up together, deploy the release, and run only `npm run db:migrate` before starting the application.
 
 ## Link rotation
 
@@ -71,7 +71,7 @@ Provision each role once. Rotate independently thereafter:
 
 ```powershell
 npm run access -- rotate admin
-npm run access -- rotate traveler
+npm run access -- rotate traveler <itinerary-id-or-slug>
 ```
 
 Rotation increments only that credential version and deletes its existing sessions in one transaction. Share the replacement link out of band.
@@ -84,7 +84,9 @@ The instructor workspace distinguishes:
 - **Itinerary section:** a stable-ID dated instance with title, location, hero, and ordered blocks.
 - **Media asset:** reusable original plus derivative, tags, and alt text.
 
-Sections and blocks have no hard-coded count. The editor supports headings, paragraphs, lists, structured facts, image grids, and galleries. Draft preview and the traveler journal use the same renderer. The traveler page generates its contents from published section order; stable IDs keep repeated lodge/destination names unambiguous.
+Sections and blocks have no hard-coded count. The editor supports headings, paragraphs, lists, structured facts, image grids, legacy galleries, and accessible ordered carousels. Media tags filter the library but never place photography; every hero and content image is stored as an explicit media ID. Draft preview and the traveler journal use the same renderer and chronological ordering (`startDate`, then administrative order). Stable IDs keep repeated lodge/destination names unambiguous.
+
+Existing installations are migrated in place. The migration adds nullable itinerary assignments to credentials/sessions and a revision version counter. If an older database has exactly one published itinerary, the existing traveler credential and sessions are assigned to it for backward compatibility; otherwise an administrator must use **Assign traveler** in the dashboard or rotate the traveler link with an itinerary ID/slug.
 
 ## Checks
 

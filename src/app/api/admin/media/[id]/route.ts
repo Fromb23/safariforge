@@ -1,2 +1,3 @@
-import { requireAdminMutation } from "@/lib/auth";import { updateMedia } from "@/lib/documents";import { apiError, privateJson } from "@/lib/http";
+import { requireAdminMutation } from "@/lib/auth";import { deleteMediaRecord, updateMedia } from "@/lib/documents";import { apiError, privateJson } from "@/lib/http";import { removeStoredMedia } from "@/lib/storage";
 export async function PUT(request:Request,{params}:{params:Promise<{id:string}>}){try{await requireAdminMutation(request);const body=await request.json() as {tags:string[];altText:string};return privateJson(updateMedia((await params).id,body.tags||[],body.altText||""));}catch(e){return apiError(e)}}
+export async function DELETE(request:Request,{params}:{params:Promise<{id:string}>}){try{await requireAdminMutation(request);const row=deleteMediaRecord((await params).id);await removeStoredMedia(row);return privateJson({ok:true});}catch(e){return apiError(e)}}

@@ -7,11 +7,11 @@ const schema = `
 PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS credentials (
   role TEXT PRIMARY KEY CHECK(role IN ('ADMIN','TRAVELER')), token_hash TEXT NOT NULL,
-  version INTEGER NOT NULL DEFAULT 1, rotated_at TEXT NOT NULL
+  version INTEGER NOT NULL DEFAULT 1, rotated_at TEXT NOT NULL, itinerary_id TEXT
 );
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY, session_hash TEXT UNIQUE NOT NULL, csrf_hash TEXT NOT NULL, role TEXT NOT NULL,
-  credential_version INTEGER NOT NULL, expires_at TEXT NOT NULL,
+  credential_version INTEGER NOT NULL, expires_at TEXT NOT NULL, itinerary_id TEXT,
   FOREIGN KEY(role) REFERENCES credentials(role) ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS sessions_expiry ON sessions(expires_at);
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS itineraries (
 );
 CREATE TABLE IF NOT EXISTS revisions (
   id TEXT PRIMARY KEY, itinerary_id TEXT NOT NULL, number INTEGER NOT NULL, state TEXT NOT NULL,
-  document_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, published_at TEXT,
+  document_json TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, published_at TEXT, version INTEGER NOT NULL DEFAULT 1,
   FOREIGN KEY(itinerary_id) REFERENCES itineraries(id) ON DELETE CASCADE, UNIQUE(itinerary_id, number)
 );
 CREATE TABLE IF NOT EXISTS revision_media (
@@ -50,6 +50,18 @@ export function db() {
     const instance = new DatabaseSync(config.databasePath) as SafariDb;
     instance.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;");
     instance.exec(schema);
+    const ensureColumn = (table: string, column: string, definition: string) => {
+      const columns = instance.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+      if (!columns.some((item) => item.name === column)) instance.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    };
+    ensureColumn("credentials", "itinerary_id", "TEXT");
+    ensureColumn("sessions", "itinerary_id", "TEXT");
+    ensureColumn("revisions", "version", "INTEGER NOT NULL DEFAULT 1");
+    const published = instance.prepare("SELECT id FROM itineraries WHERE published_revision_id IS NOT NULL ORDER BY created_at").all() as Array<{id:string}>;
+    if (published.length === 1) {
+      instance.prepare("UPDATE credentials SET itinerary_id=? WHERE role='TRAVELER' AND itinerary_id IS NULL").run(published[0].id);
+      instance.prepare("UPDATE sessions SET itinerary_id=? WHERE role='TRAVELER' AND itinerary_id IS NULL").run(published[0].id);
+    }
     instance.transaction = <T>(fn: () => T) => () => {
       instance.exec("BEGIN IMMEDIATE");
       try { const result = fn(); instance.exec("COMMIT"); return result; }
