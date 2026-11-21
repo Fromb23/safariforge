@@ -1,0 +1,14 @@
+import "dotenv/config";
+import { randomToken, secretHash } from "../src/lib/auth-core";
+import { db } from "../src/lib/db";
+import { config } from "../src/lib/config";
+import type { Role } from "../src/types";
+const [command, name] = process.argv.slice(2); const role: Role | null = name === "admin" ? "ADMIN" : name === "traveler" ? "TRAVELER" : null;
+if (!role || !["provision", "rotate"].includes(command || "")) throw new Error("Usage: npm run access -- <provision|rotate> <admin|traveler>");
+const existing = db().prepare("SELECT role FROM credentials WHERE role=?").get(role);
+if (command === "provision" && existing) throw new Error(`${name} is already provisioned. Use rotate.`);
+if (command === "rotate" && !existing) throw new Error(`${name} is not provisioned. Use provision.`);
+const token = randomToken(); const hash = secretHash(token); const now = new Date().toISOString();
+db().transaction(() => { if (existing) { db().prepare("UPDATE credentials SET token_hash=?, version=version+1, rotated_at=? WHERE role=?").run(hash, now, role); db().prepare("DELETE FROM sessions WHERE role=?").run(role); } else db().prepare("INSERT INTO credentials(role,token_hash,version,rotated_at) VALUES(?,?,1,?)").run(role, hash, now); })();
+console.log(`${command === "rotate" ? "Rotated" : "Provisioned"} ${name}. Copy this private link now; it cannot be recovered:`);
+console.log(`${new URL(config.siteUrl).origin}/access/${name}?token=${token}`);

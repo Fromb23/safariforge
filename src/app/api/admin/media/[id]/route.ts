@@ -1,0 +1,2 @@
+import { requireAdminMutation } from "@/lib/auth";import { updateMedia } from "@/lib/documents";import { apiError, privateJson } from "@/lib/http";
+export async function PUT(request:Request,{params}:{params:Promise<{id:string}>}){try{await requireAdminMutation(request);const body=await request.json() as {tags:string[];altText:string};return privateJson(updateMedia((await params).id,body.tags||[],body.altText||""));}catch(e){return apiError(e)}}
