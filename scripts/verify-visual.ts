@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { chromium, type Page } from "playwright-core";
+import { chromium, type Page } from "@playwright/test";
 import unzipper from "unzipper";
 import type { LeftPanel, SafariPageDocument } from "../src/types";
 
@@ -9,7 +9,8 @@ const root = process.cwd();
 const runtimeDir = path.resolve(root, "runtime", "visual-verification");
 const databasePath = path.join(runtimeDir, "visual.sqlite");
 const mediaDir = path.join(runtimeDir, "media");
-const outputDir = path.resolve(root, "artifacts", "visual-verification");
+const reviewStage = process.env.VISUAL_REVIEW_STAGE || "revised";
+const outputDir = path.resolve(root, "artifacts", "visual-review", reviewStage);
 const origin = "http://127.0.0.1:3217";
 const edgePath =
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
@@ -121,6 +122,11 @@ for (const [index, overlayPosition] of positions.entries()) {
         { id: `heading-${index}`, type: "heading", text: `Editorial chapter ${index + 1}` },
         ...(index === 0
           ? [
+              { id: "subtitle-0", type: "subtitle" as const, text: "A morning among giants" },
+              { id: "paragraph-0-a", type: "paragraph" as const, text: "At first light, the acacia woodland held its breath. A family of elephants moved through the long grass with the unhurried confidence of animals following an ancient route." },
+              { id: "paragraph-0-b", type: "paragraph" as const, text: "We watched quietly from the track as dust caught the low sun. The youngest calf stayed close, disappearing and reappearing between a forest of legs." },
+              { id: "list-0", type: "list" as const, items: ["Dawn departure from camp", "Picnic breakfast beneath the acacias", "Unhurried wildlife viewing"] },
+              { id: "facts-0", type: "facts" as const, title: "Field notes", items: [{ label: "Landscape", value: "Acacia woodland" }, { label: "Season", value: "Green season" }] },
               {
                 id: "existing-image-block",
                 type: "imageGrid" as const,
@@ -161,6 +167,15 @@ const adminAccessUrl = `${origin}/access/admin?token=${adminToken}`;
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(message);
+}
+
+function collectBrowserErrors(page: Page) {
+  const errors: string[] = [];
+  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("console", (message) => {
+    if (message.type() === "error") errors.push(`${message.text()} @ ${message.location().url || "unknown"}`);
+  });
+  return errors;
 }
 
 async function verifyPosition(
@@ -236,12 +251,13 @@ try {
   });
   try {
     for (const viewport of [
-      { width: 1366, height: 768 },
-      { width: 1600, height: 900 },
+      { width: 1440, height: 900 },
       { width: 1920, height: 1080 },
     ]) {
       const page = await browser.newPage({ viewport });
+      const browserErrors = collectBrowserErrors(page);
       await page.goto(origin, { waitUntil: "networkidle" });
+      await page.evaluate(() => document.fonts.ready);
       await page.locator(".spread-hero > img").first().waitFor();
       const loadedImages = await page
         .locator(".spread-hero > img, .carousel-viewport > img")
@@ -257,6 +273,21 @@ try {
       assert((await page.locator(".page-navigation, .page-position").count()) === 0, "Manual Safari Page navigation remained visible");
       assert((await page.getByRole("button", { name: /Safari Page/ }).count()) === 0, "Previous or next Safari Page controls remained visible");
       assert((await page.getByRole("dialog", { name: "Table of Contents" }).count()) === 0, "Table of Contents was open initially");
+      assert(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "Desktop journal introduced horizontal scrolling");
+      const typography = await page.locator(".safari-spread").first().evaluate((spread) => {
+        const hero = getComputedStyle(spread.querySelector(".spread-copy h2")!);
+        const heading = getComputedStyle(spread.querySelector(".spread-story h3")!);
+        const body = getComputedStyle(spread.querySelector(".spread-story-content > p:not(.editorial-subtitle)")!);
+        return {
+          hero: { family: hero.fontFamily, size: parseFloat(hero.fontSize) },
+          heading: { family: heading.fontFamily, size: parseFloat(heading.fontSize) },
+          body: { family: body.fontFamily, size: parseFloat(body.fontSize) },
+        };
+      });
+      assert(typography.hero.family.includes("Montserrat") && typography.hero.size >= 32, `Hero typography tokens were not applied: ${JSON.stringify(typography.hero)}`);
+      assert(typography.heading.family.includes("Libre") && typography.heading.size >= 32, `Editorial heading tokens were not applied: ${JSON.stringify(typography.heading)}`);
+      assert(typography.body.family.includes("Source Serif") && typography.body.size >= 16, `Editorial body tokens were not applied: ${JSON.stringify(typography.body)}`);
+      await page.screenshot({ path: path.join(outputDir, `${viewport.width}x${viewport.height}-journal.png`), fullPage: true });
       assert((await page.getByText("A SUB SECTION", { exact: true }).count()) === 0, "A SUB SECTION remained visible to public visitors");
       const dates = await page.locator(".safari-spread .spread-copy time").allTextContents();
       assert(dates.join("|") === "January 1, 2027|January 2, 2027|January 3, 2027|January 4, 2027", "Safari Page dates did not remain paired and ordered");
@@ -268,7 +299,8 @@ try {
         assert(await spread.getByText(`Editorial chapter ${index + 1}`, { exact: true }).isVisible(), `Spread ${index + 1} lost its editorial content`);
       }
       const longSpreadHeight = await page.locator(".safari-spread").nth(1).evaluate((spread) => spread.getBoundingClientRect().height);
-      assert(longSpreadHeight > viewport.height * 1.5, "Long editorial content was clipped to a viewport-height spread");
+      const longStoryFits = await page.locator(".safari-spread").nth(1).locator(".spread-story").evaluate((story) => story.scrollHeight <= story.clientHeight + 1);
+      assert(longSpreadHeight > viewport.height && longStoryFits, "Long editorial content was clipped to a viewport-height spread");
       const carousel = page
         .locator(".safari-spread")
         .first()
@@ -330,6 +362,7 @@ try {
       await page.getByRole("button", { name: "Open Table of Contents" }).click();
       const contents = page.getByRole("dialog", { name: "Table of Contents" });
       assert(await contents.isVisible(), "Table of Contents did not open from the menu icon");
+      await page.screenshot({ path: path.join(outputDir, `${viewport.width}x${viewport.height}-contents-open.png`) });
       await page.waitForFunction((id) => document.querySelector('#journal-contents a[aria-current="location"]')?.getAttribute("href") === `#${id}`, secondSectionId);
       await contents.getByRole("link", { name: /Wildlife at the crater/ }).click();
       assert((await contents.count()) === 0, "Table of Contents did not close after section selection");
@@ -394,30 +427,41 @@ try {
         !controlsOverlapCopy,
         "Editor hero controls obscured the selected text corner",
       );
+      assert(browserErrors.length === 0, `Browser errors were reported: ${browserErrors.join(" | ")}`);
       await page.close();
     }
-    const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
-    await mobile.goto(origin, { waitUntil: "networkidle" });
-    assert((await mobile.locator(".safari-spread").count()) === 4, "Mobile journal did not render every spread");
-    assert((await mobile.locator(".page-navigation").count()) === 0, "Safari Page navigation remained on mobile");
-    assert(await mobile.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "Mobile journal introduced horizontal scrolling");
-    await mobile.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
-    const mobileBefore = await mobile.evaluate(() => window.scrollY);
-    const mobileSecondTop = await mobile.locator(".safari-spread").nth(1).evaluate((section) => (section as HTMLElement).offsetTop);
-    await mobile.mouse.wheel(0, mobileSecondTop + 10);
-    await mobile.waitForFunction((minimum) => window.scrollY >= minimum, Math.min(mobileSecondTop, 844));
-    assert((await mobile.evaluate(() => window.scrollY)) > mobileBefore, "Mobile journal did not advance through natural scrolling");
-    assert(await mobile.locator(".safari-spread").nth(1).getByText("Editorial chapter 2", { exact: true }).isVisible(), "Mobile second spread lost its paired editorial panel");
-    assert(await mobile.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "Scrolled mobile journal introduced horizontal scrolling");
-    await mobile.screenshot({ path: path.join(outputDir, "390x844-mobile.png"), fullPage: true });
-    await mobile.close();
+    for (const viewport of [{ width: 768, height: 1024 }, { width: 390, height: 844 }]) {
+      const compact = await browser.newPage({ viewport });
+      const browserErrors = collectBrowserErrors(compact);
+      await compact.goto(origin, { waitUntil: "networkidle" });
+      await compact.evaluate(() => document.fonts.ready);
+      assert((await compact.locator(".safari-spread").count()) === 4, "Compact journal did not render every spread");
+      assert((await compact.locator(".page-navigation").count()) === 0, "Safari Page navigation remained on a compact viewport");
+      assert(await compact.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "Compact journal introduced horizontal scrolling");
+      await compact.screenshot({ path: path.join(outputDir, `${viewport.width}x${viewport.height}-journal.png`), fullPage: true });
+      await compact.getByRole("button", { name: "Open Table of Contents" }).click();
+      assert(await compact.getByRole("dialog", { name: "Table of Contents" }).isVisible(), "Compact Table of Contents did not open");
+      await compact.screenshot({ path: path.join(outputDir, `${viewport.width}x${viewport.height}-contents-open.png`) });
+      await compact.getByRole("button", { name: "Close Table of Contents" }).click();
+      await compact.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+      const compactBefore = await compact.evaluate(() => window.scrollY);
+      const compactSecondTop = await compact.locator(".safari-spread").nth(1).evaluate((section) => (section as HTMLElement).offsetTop);
+      await compact.mouse.wheel(0, compactSecondTop + 10);
+      await compact.waitForFunction((minimum) => window.scrollY >= minimum, Math.min(compactSecondTop, viewport.height));
+      assert((await compact.evaluate(() => window.scrollY)) > compactBefore, "Compact journal did not advance through natural scrolling");
+      assert(await compact.locator(".safari-spread").nth(1).getByText("Editorial chapter 2", { exact: true }).isVisible(), "Compact second spread lost its paired editorial panel");
+      assert(await compact.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "Scrolled compact journal introduced horizontal scrolling");
+      assert(browserErrors.length === 0, `Compact browser errors were reported: ${browserErrors.join(" | ")}`);
+      await compact.close();
+    }
   } finally {
     await browser.close();
   }
   console.log(
     JSON.stringify(
       {
-        viewports: ["1366x768", "1600x900", "1920x1080", "390x844"],
+        viewports: ["1440x900", "1920x1080", "768x1024", "390x844"],
+        reviewStage,
         positions,
         carousel: ["first", "second"],
         screenshots: outputDir,

@@ -21,6 +21,9 @@ body {
   background: var(--ivory);
   color: var(--ink);
   font: 16px/1.6 var(--sans);
+  --hero-sans: var(--font-montserrat), Montserrat, Arial, sans-serif;
+  --editorial-heading: var(--font-libre-baskerville), "Libre Baskerville", Georgia, serif;
+  --editorial-body: var(--font-source-serif), "Source Serif 4", Georgia, serif;
 }
 button,
 input,
@@ -118,7 +121,22 @@ body.modal-open {
   max-width: 38rem;
 }
 .journal {
-  background: var(--paper);
+  --journal-paper: #f8f4ea;
+  --journal-forest: #20372b;
+  --journal-ink: #20231f;
+  --journal-muted: #686a62;
+  --journal-copper: #a95f3c;
+  --journal-rule: #d8d0c0;
+  --space-1: 0.5rem;
+  --space-2: 0.75rem;
+  --space-3: 1rem;
+  --space-4: 1.5rem;
+  --space-5: 2rem;
+  --space-6: 3rem;
+  --space-7: 4.5rem;
+  --space-8: 6rem;
+  background: var(--journal-paper);
+  color: var(--journal-ink);
 }
 .journal-header {
   height: 5rem;
@@ -1597,10 +1615,10 @@ body.modal-open {
 .spread-shade {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, #111a138f 0, transparent 38%, transparent 58%, #111a13c9 100%);
+  background: linear-gradient(180deg, #101b167a 0, transparent 28%, transparent 72%, #101b1694 100%);
 }
 .spread-copy {
-  --corner-inset: clamp(1.5rem, 6cqi, 3.5rem);
+  --corner-inset: clamp(1.5rem, 6cqi, 3.75rem);
   --overlay-top: auto;
   --overlay-right: auto;
   --overlay-bottom: auto;
@@ -1611,32 +1629,43 @@ body.modal-open {
   right: var(--overlay-right);
   bottom: var(--overlay-bottom);
   left: var(--overlay-left);
-  width: min(30rem, calc(100% - (2 * var(--corner-inset))));
+  width: min(34rem, calc(100% - (2 * var(--corner-inset))));
   max-height: calc(100% - (2 * var(--corner-inset)));
   display: grid;
-  gap: 0.4rem;
-  overflow-wrap: anywhere;
-  text-shadow:
-    0 1px 2px #111a13,
-    0 0 1rem #111a13cc;
+  gap: var(--space-2, 0.75rem);
+  overflow-wrap: break-word;
+  font-family: var(--hero-sans);
+  text-shadow: 0 1px 0.45rem #101b16d9;
 }
 .spread-copy p {
   margin: 0;
   text-transform: uppercase;
-  letter-spacing: 0.17em;
-  font-size: 0.68rem;
+  letter-spacing: 0.13em;
+  font-size: clamp(0.62rem, 1.7cqi, 0.72rem);
+  font-weight: 600;
+  opacity: 0.82;
 }
 .spread-copy h2 {
-  font: 400 clamp(2.25rem, 8cqi, 4.5rem) / 0.94 var(--serif);
+  max-width: 13ch;
+  margin: 0.15rem 0;
+  font: 650 clamp(2.15rem, 7cqi, 4.5rem) / 0.98 var(--hero-sans);
   letter-spacing: -0.035em;
-  margin: 0.15rem 0 0.25rem;
+  text-transform: uppercase;
+  text-wrap: balance;
 }
 .spread-copy span,
 .spread-copy time {
   display: block;
   text-transform: uppercase;
-  letter-spacing: 0.11em;
-  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  font-size: clamp(0.63rem, 1.7cqi, 0.74rem);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.spread-copy time {
+  order: -1;
+  padding-bottom: 0.15rem;
+  color: #f0c6a7;
 }
 .hero-edit .spread-copy input,
 .hero-edit .spread-copy textarea {
@@ -1741,22 +1770,22 @@ body.modal-open {
 }
 .spread-story {
   min-height: 100vh;
-  padding: clamp(5rem, 10vw, 9rem) clamp(2rem, 7vw, 7rem);
-  border-bottom: 1px solid var(--line);
+  padding: 0;
+  background: var(--journal-paper, var(--paper));
+  border-bottom: 1px solid var(--journal-rule, var(--line));
 }
 .spread-story h3 {
-  font: 400 clamp(2rem, 4vw, 3.8rem) / 1.05 var(--serif);
-  margin: 1rem 0;
-}
-.spread-story > p:not(.editorial-subtitle) {
-  white-space: pre-wrap;
-  font: clamp(1.05rem, 1.5vw, 1.25rem) / 1.85 var(--serif);
+  margin: 0;
+  font: 400 clamp(2rem, 3.1vw, 3.45rem) / 1.14 var(--editorial-heading);
+  letter-spacing: -0.035em;
+  text-wrap: balance;
 }
 .editorial-subtitle {
+  margin: 0;
+  color: var(--journal-copper, var(--copper));
+  font: 600 0.78rem/1.5 var(--hero-sans);
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  letter-spacing: 0.2em;
-  color: var(--copper);
-  font-size: 0.72rem;
 }
 .spread-story .image-grid {
   margin: 3rem -2rem;
@@ -1855,11 +1884,11 @@ body.modal-open {
   }
   .spread-hero {
     position: relative;
-    height: 72vh;
+    height: clamp(32rem, 68svh, 46rem);
   }
   .spread-story {
     min-height: auto;
-    padding: 4rem 1.35rem;
+    padding: 0;
   }
   .spread-story .image-grid {
     margin: 2rem -1.35rem;
@@ -2046,6 +2075,19 @@ body.modal-open {
   text-align: left;
   transform: translateY(-50%);
 }
+.spread-hero:has(.spread-copy.top-left) .spread-shade {
+  background: linear-gradient(145deg, #101b16b8 0, #101b165c 32%, transparent 64%);
+}
+.spread-hero:has(.spread-copy.top-right) .spread-shade {
+  background: linear-gradient(215deg, #101b16b8 0, #101b165c 32%, transparent 64%);
+}
+.spread-hero:has(.spread-copy.bottom-left) .spread-shade,
+.spread-hero:has(.spread-copy.center-left) .spread-shade {
+  background: linear-gradient(35deg, #101b16c2 0, #101b1652 34%, transparent 67%);
+}
+.spread-hero:has(.spread-copy.bottom-right) .spread-shade {
+  background: linear-gradient(325deg, #101b16c2 0, #101b1652 34%, transparent 67%);
+}
 
 /* Carousel has one stable, aspect-preserving viewport in preview and public views. */
 .carousel {
@@ -2162,9 +2204,6 @@ body.modal-open {
     right: 0;
     background: linear-gradient(to right, #172219c7 0 50%, transparent 50%);
   }
-  .journal:not(.is-preview) .safari-spread {
-    min-height: 100vh;
-  }
   .journal.is-preview .journal-header {
     right: 50%;
     background: linear-gradient(#172219c7, transparent);
@@ -2181,13 +2220,11 @@ body.modal-open {
     overscroll-behavior: contain;
   }
 }
-.spread-story {
-  padding: 0;
-}
 .spread-story-content {
-  width: min(100%, 48rem);
+  width: min(100%, 52rem);
   margin: 0 auto;
-  padding: clamp(4rem, 8vw, 7rem) clamp(2rem, 7vw, 7rem);
+  padding-block: clamp(var(--space-7), 10vh, 7.5rem);
+  padding-inline: clamp(var(--space-5), 5vw, var(--space-8));
 }
 .spread-story-content > :first-child {
   margin-top: 0;
@@ -2195,17 +2232,47 @@ body.modal-open {
 .spread-story-content > :last-child {
   margin-bottom: 0;
 }
+.spread-story-content > * {
+  margin-block: 0;
+}
+.spread-story-content > * + * {
+  margin-block-start: var(--space-4);
+}
+.spread-story-content > h3 + .editorial-subtitle {
+  margin-block-start: var(--space-3);
+}
+.spread-story-content > :is(p, ul, .facts, .carousel) + h3 {
+  margin-block-start: var(--space-7);
+}
 .spread-story-content > p:not(.editorial-subtitle) {
-  max-width: 42rem;
+  max-width: 43rem;
   white-space: pre-wrap;
-  font: clamp(1.05rem, 1.5vw, 1.25rem) / 1.85 var(--serif);
+  color: var(--journal-ink);
+  font: 400 clamp(1.05rem, 1.15vw, 1.125rem) / 1.66 var(--editorial-body);
+  text-wrap: pretty;
 }
 .spread-story-content ul {
-  padding-left: 1.2rem;
-  font: 1.05rem/1.75 var(--serif);
+  max-width: 42rem;
+  padding-inline-start: 1.25rem;
+  font: 400 clamp(1.05rem, 1.15vw, 1.125rem) / 1.6 var(--editorial-body);
 }
 .spread-story-content li {
-  padding: 0.3rem 0;
+  padding-block: 0.2rem;
+  padding-inline-start: 0.35rem;
+}
+.spread-story-content li::marker {
+  color: var(--journal-copper);
+}
+.spread-story-content .facts {
+  margin-block: var(--space-6);
+  border-color: var(--journal-rule);
+}
+.spread-story-content .facts h4,
+.spread-story-content .facts dt {
+  font-family: var(--hero-sans);
+}
+.spread-story-content .facts dd {
+  font-family: var(--editorial-body);
 }
 .carousel-position {
   text-transform: uppercase;
@@ -2274,7 +2341,7 @@ body.modal-open {
 }
 .contents-panel h2 {
   margin: 0;
-  font: 400 2rem/1.1 var(--serif);
+  font: 400 1.8rem/1.2 var(--editorial-heading);
 }
 .contents-panel header button {
   width: 2.5rem;
@@ -2317,7 +2384,7 @@ body.modal-open {
   display: block;
 }
 .contents-panel strong {
-  font: 400 1.1rem/1.3 var(--serif);
+  font: 400 1.05rem/1.4 var(--editorial-heading);
 }
 .contents-panel time {
   margin-top: 0.35rem;
@@ -2330,7 +2397,7 @@ body.modal-open {
 /* One photograph at a time, with quiet controls below the image. */
 .spread-story .carousel {
   min-height: 0;
-  margin: clamp(3rem, 7vw, 5rem) 0;
+  margin: var(--space-7) 0;
   overflow: visible;
   aspect-ratio: auto;
   background: transparent;
@@ -2339,20 +2406,20 @@ body.modal-open {
 .carousel-viewport {
   width: 100%;
   overflow: hidden;
-  aspect-ratio: 4 / 3;
-  background: var(--olive);
+  aspect-ratio: 3 / 2;
+  background: #e8e1d3;
 }
 .carousel-viewport > img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
 }
 .carousel-controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  min-height: 3.5rem;
-  border-bottom: 1px solid var(--line);
+  min-height: 3.25rem;
+  border-bottom: 1px solid var(--journal-rule);
 }
 .carousel-position {
   position: static;
@@ -2376,7 +2443,7 @@ body.modal-open {
     right: 0;
   }
   .spread-story-content {
-    padding: 4rem 1.35rem;
+    padding: 3.75rem 1.5rem 4.5rem;
   }
   .journal .contents-button span {
     position: absolute;
@@ -2386,6 +2453,6 @@ body.modal-open {
     clip-path: inset(50%);
   }
   .spread-story .carousel {
-    margin: 3rem 0;
+    margin: var(--space-6) 0;
   }
 }

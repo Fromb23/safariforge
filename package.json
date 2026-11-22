@@ -10,7 +10,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:e2e": "tsx scripts/verify-e2e.ts",
-    "test:visual": "tsx scripts/verify-visual.ts",
+    "test:visual": "playwright test",
+    "test:visual:script": "tsx scripts/verify-visual.ts",
     "db:migrate": "tsx scripts/migrate.ts",
     "access": "tsx scripts/access.ts",
     "images:import": "tsx scripts/import-images.ts",
@@ -27,6 +28,7 @@
     "zod": "^4.1.12"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.3",
     "@testing-library/user-event": "^14.6.13",

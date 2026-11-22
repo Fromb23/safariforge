@@ -124,10 +124,10 @@ export function SafariPageSpread({
         {left.heroMediaId && map.has(left.heroMediaId) && <img src={`/api/media/${left.heroMediaId}/original`} alt={map.get(left.heroMediaId)?.altText || ""} style={{ objectPosition: left.objectPosition || "50% 50%" }} />}
         <div className="spread-shade" />
         <div className={`spread-copy ${left.overlayPosition || "bottom-left"}`}>
-          {showEyebrow && <p>{left.eyebrow}</p>}
-          <h2>{left.title}</h2>
-          <span>{left.location}</span>
           {formattedDate && <time dateTime={canonicalDate}>{formattedDate}</time>}
+          <h2>{left.title}</h2>
+          {left.location && <span>{left.location}</span>}
+          {showEyebrow && <p>{left.eyebrow}</p>}
         </div>
       </section>
       <section className="spread-story">
