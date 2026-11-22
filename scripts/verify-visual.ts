@@ -103,8 +103,7 @@ for (const [index, overlayPosition] of positions.entries()) {
       eyebrow: "A SUB SECTION",
       title: "Title Safari Page With A Deliberately Long Editorial Heading",
       location: "Serengeti, Tanzania",
-      startDate: `2027-01-0${index + 1}`,
-      endDate: `2027-01-0${index + 2}`,
+      date: `2027-01-0${index + 1}`,
       heroMediaId: mediaIds[index],
       overlayPosition,
       objectPosition: "50% 50%",
@@ -130,7 +129,14 @@ for (const [index, overlayPosition] of positions.entries()) {
       ],
     },
   };
-  publishPage(created.id, document, draft.revisionId, draft.revisionVersion);
+  const published = publishPage(created.id, document, draft.revisionId, draft.revisionVersion);
+  if (index === 0) {
+    const legacy = structuredClone(document) as SafariPageDocument & { leftPanel: SafariPageDocument["leftPanel"] & { startDate?: string; endDate?: string } };
+    delete legacy.leftPanel.date;
+    legacy.leftPanel.startDate = "2027-01-01";
+    legacy.leftPanel.endDate = "2027-01-02";
+    db().prepare("UPDATE safari_page_revisions SET document_json=? WHERE id=?").run(JSON.stringify(legacy), published.published.revisionId);
+  }
 }
 const adminToken = authCore.randomToken();
 db()
@@ -246,6 +252,9 @@ try {
             ),
           });
       }
+      const heroDate = page.locator(".safari-spread").first().locator(".spread-copy time");
+      assert((await heroDate.count()) === 1, "Left hero did not render exactly one date");
+      assert((await heroDate.textContent())?.trim() === "January 1, 2027", "Left hero date was not the expected single formatted calendar date");
       const carousel = page
         .locator(".safari-spread")
         .first()
@@ -325,6 +334,8 @@ try {
         await page.getByText("Carousel (legacy image block)").isVisible(),
         "Editor did not retain and identify the existing legacy image block",
       );
+      assert((await page.locator('input[type="date"]').count()) === 1, "Editor did not expose exactly one date input");
+      assert(await page.getByLabel("Page Date").isVisible(), "Editor page date input was not labeled");
       const editCopy = await page
         .locator(".hero-edit .spread-copy")
         .boundingBox();

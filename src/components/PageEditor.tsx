@@ -355,32 +355,23 @@ export function PageEditor({ id, initial, initialRevisionId, initialRevisionVers
                     }))
                   }
                 />
-                <div className="date-pair">
-                  <input
-                    aria-label="Start date"
-                    type="date"
-                    value={doc.leftPanel.startDate || ""}
-                    onChange={(e) =>
-                      setDoc((v) => ({
-                        ...v,
-                        leftPanel: {
-                          ...v.leftPanel,
-                          startDate: e.target.value,
-                        },
-                      }))
-                    }
-                  />
-                  <input
-                    aria-label="End date"
-                    type="date"
-                    value={doc.leftPanel.endDate || ""}
-                    onChange={(e) =>
-                      setDoc((v) => ({
-                        ...v,
-                        leftPanel: { ...v.leftPanel, endDate: e.target.value },
-                      }))
-                    }
-                  />
+                <div className="page-date">
+                  <label>
+                    <span>Page Date</span>
+                    <input
+                      type="date"
+                      value={doc.leftPanel.date || ""}
+                      onChange={(e) =>
+                        setDoc((v) => ({
+                          ...v,
+                          leftPanel: {
+                            ...v.leftPanel,
+                            date: e.target.value || undefined,
+                          },
+                        }))
+                      }
+                    />
+                  </label>
                 </div>
               </div>
               <div className="hero-tools">

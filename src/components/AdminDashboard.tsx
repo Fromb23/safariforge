@@ -7,7 +7,7 @@ import { ActionMenu } from "./ActionMenu";
 
 export function csrf(){return decodeURIComponent(document.cookie.split(";").map(v=>v.trim()).find(v=>v.startsWith("safariforge_admin_csrf="))?.split("=").slice(1).join("=")||"")}
 export async function mutate(url:string,method="POST",body?:unknown){const response=await fetch(url,{method,credentials:"same-origin",headers:{"Content-Type":"application/json","X-CSRF-Token":csrf()},body:body===undefined?undefined:JSON.stringify(body)});const result=await response.json();if(!response.ok)throw new Error(result.error||"Request failed");return result}
-function dateLabel(item:SafariPageSummary){if(!item.startDate)return "Date not set";return item.endDate&&item.endDate!==item.startDate?`${item.startDate} – ${item.endDate}`:item.startDate}
+function dateLabel(item:SafariPageSummary){return item.date||"Date not set"}
 function statusLabel(status:SafariPageSummary["status"]){return status==="UNPUBLISHED_CHANGES"?"Unpublished changes":status[0]+status.slice(1).toLowerCase()}
 
 export function AdminDashboard({items:initial,templates}:{items:SafariPageSummary[];templates:TemplateRecord[]}){

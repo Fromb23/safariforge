@@ -697,9 +697,11 @@ body.modal-open {
 .trip-fields label:first-child input {
   font-size: 2rem;
 }
-.date-pair {
-  display: flex;
-  gap: 1rem;
+.page-date {
+  display: block;
+}
+.page-date label {
+  display: block;
 }
 .section-actions {
   display: flex;

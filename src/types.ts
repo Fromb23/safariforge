@@ -26,8 +26,7 @@ export type LeftPanel = {
   eyebrow?: string;
   title: string;
   location?: string;
-  startDate?: string;
-  endDate?: string;
+  date?: string;
   heroMediaId?: string;
   /** center-left is retained only for safely rendering historical snapshots. */
   overlayPosition?: "top-left" | "top-right" | "bottom-left" | "bottom-right" | "center-left";
@@ -43,8 +42,7 @@ export type SafariPageSummary = {
   id: string;
   title: string;
   location?: string;
-  startDate?: string;
-  endDate?: string;
+  date?: string;
   heroMediaId?: string;
   sortOrder: number;
   status: SafariPageStatus;

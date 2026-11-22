@@ -2,17 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { useMemo, useRef, useState } from "react";
 import type { ContentBlock, MediaRecord, SafariPageDocument } from "@/types";
-function dates(start?: string, end?: string) {
-  if (!start) return "";
-  const show = (v: string) =>
-    new Intl.DateTimeFormat("en", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-      timeZone: "UTC",
-    }).format(new Date(`${v}T00:00:00Z`));
-  return end && end !== start ? `${show(start)} — ${show(end)}` : show(start);
-}
+import { formatPageDate, pageDate } from "@/lib/page-date";
 export function Carousel({ ids, media }: { ids: string[]; media: Map<string, MediaRecord> }) {
   const valid = ids.filter((id) => media.has(id)),
     [index, setIndex] = useState(0),
@@ -119,7 +109,9 @@ export function ContentBlocks({ blocks, media }: { blocks: ContentBlock[]; media
 }
 export function SafariPageSpread({ page, media, id }: { page: SafariPageDocument; media: MediaRecord[]; id?: string }) {
   const map = useMemo(() => new Map(media.map((item) => [item.id, item])), [media]),
-    left = page.leftPanel;
+    left = page.leftPanel,
+    canonicalDate = pageDate(left),
+    formattedDate = formatPageDate(canonicalDate);
   return (
     <article className="safari-spread" id={id}>
       <section className="spread-hero">
@@ -129,7 +121,7 @@ export function SafariPageSpread({ page, media, id }: { page: SafariPageDocument
           <p>{left.eyebrow}</p>
           <h2>{left.title}</h2>
           <span>{left.location}</span>
-          <time>{dates(left.startDate, left.endDate)}</time>
+          {formattedDate && <time dateTime={canonicalDate}>{formattedDate}</time>}
         </div>
       </section>
       <section className="spread-story">

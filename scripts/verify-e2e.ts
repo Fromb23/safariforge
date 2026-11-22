@@ -15,7 +15,7 @@ function cookies(headers:Headers){return headers.getSetCookie().map(value=>value
 function cookieValue(header:string,name:string){return header.split('; ').find(part=>part.startsWith(`${name}=`))?.slice(name.length+1)||''}
 async function page(url:string,cookie=''){const response=await fetch(url,{headers:cookie?{Cookie:cookie}:{}});return{response,body:await response.text()}}
 async function ready(){for(let attempt=0;attempt<40;attempt++){try{if((await fetch(origin)).ok)return}catch{}await new Promise(resolve=>setTimeout(resolve,250))}throw new Error('Server did not become ready')}
-const content=(title:string,text:string,heroMediaId?:string):SafariPageDocument=>({leftPanel:{eyebrow:'Safari journal',title,startDate:'2027-01-01',location:'Serengeti',overlayPosition:'bottom-left',heroMediaId},rightPanel:{blocks:[{id:crypto.randomUUID(),type:'subtitle',text:'Tailor made travel'},{id:crypto.randomUUID(),type:'paragraph',text}]}});
+const content=(title:string,text:string,heroMediaId?:string):SafariPageDocument=>({leftPanel:{eyebrow:'Safari journal',title,date:'2027-01-01',location:'Serengeti',overlayPosition:'bottom-left',heroMediaId},rightPanel:{blocks:[{id:crypto.randomUUID(),type:'subtitle',text:'Tailor made travel'},{id:crypto.randomUUID(),type:'paragraph',text}]}});
 const publicMediaId=fixtureMedia('published.jpg'),privateMediaId=fixtureMedia('draft-only.jpg');
 const created=createPage(),initial=getPage(created.id,'draft')!;publishPage(created.id,content('Safari Note','Published opening',publicMediaId),initial.revisionId,initial.revisionVersion);
 const second=createPage(),secondDraft=getPage(second.id,'draft')!;publishPage(second.id,content('Safari Day','Second published page'),secondDraft.revisionId,secondDraft.revisionVersion);

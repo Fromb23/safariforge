@@ -1,13 +1,32 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
 import { ActionMenu } from "@/components/ActionMenu";
 import { Carousel, ContentBlocks } from "@/components/SafariJournalRenderer";
-import type { MediaRecord } from "@/types";
+import { PageEditor } from "@/components/PageEditor";
+import type { MediaRecord, SafariPageDocument } from "@/types";
+
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
 afterEach(cleanup);
+describe("Safari Page date editing", () => {
+  it("shows one restored page date and marks the draft dirty when it changes", () => {
+    const initial: SafariPageDocument = {
+      leftPanel: { title: "Elephants beneath the baobabs", date: "2026-11-21", overlayPosition: "bottom-left" },
+      rightPanel: { blocks: [{ id: "copy", type: "paragraph", text: "Preserved right-panel copy" }] },
+    };
+    render(<PageEditor id="page-one" initial={initial} initialRevisionId="revision-one" initialRevisionVersion={1} media={[]} allocations={[]} />);
+    const date = screen.getByLabelText("Page Date");
+    expect(date).toHaveValue("2026-11-21");
+    expect(document.querySelectorAll('input[type="date"]')).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Save Draft" })).toBeDisabled();
+    fireEvent.change(date, { target: { value: "2026-11-22" } });
+    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save Draft" })).toBeEnabled();
+  });
+});
 describe("accessible administrative action menus", () => {
   it("toggles, closes outside and on Escape, and allows only one open menu", async () => {
     const user = userEvent.setup();

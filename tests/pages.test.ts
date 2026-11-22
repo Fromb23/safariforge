@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { db } from "@/lib/db";
 import { createPage, deletePage, duplicatePage, getPage, listPages, listPublishedPages, mediaAllocations, migrateLegacyPages, movePage, pageMediaIsPublished, publishPage, savePage, setJournalInclusion, unpublishPage, validatePage } from "@/lib/pages";
 import { SafariJournalRenderer } from "@/components/SafariJournalRenderer";
+import { formatPageDate, normalizePageDocument } from "@/lib/page-date";
 import type { ItineraryDocument, MediaRecord, SafariPageDocument } from "@/types";
 
 const page = (title = "Safari Note", date = "2027-01-01"): SafariPageDocument => ({
@@ -12,7 +13,7 @@ const page = (title = "Safari Note", date = "2027-01-01"): SafariPageDocument =>
     eyebrow: "A Note About Your Itinerary",
     title,
     location: "Serengeti",
-    startDate: date,
+    date,
     overlayPosition: "bottom-left",
   },
   rightPanel: {
@@ -48,7 +49,7 @@ describe("independent Safari Pages", () => {
     document.leftPanel = {
       ...document.leftPanel,
       eyebrow: "Restored eyebrow",
-      endDate: "2027-01-03",
+      date: "2027-01-03",
       heroMediaId: mediaId,
       overlayPosition: "top-right",
       objectPosition: "25% 75%",
@@ -65,6 +66,7 @@ describe("independent Safari Pages", () => {
     expect(reopened.revisionVersion).toBe(2);
     expect(reopened.document.leftPanel).toMatchObject({
       eyebrow: "Restored eyebrow",
+      date: "2027-01-03",
       heroMediaId: mediaId,
       overlayPosition: "top-right",
       objectPosition: "25% 75%",
@@ -76,6 +78,7 @@ describe("independent Safari Pages", () => {
       draft = getPage(created.id, "draft")!,
       published = publishPage(created.id, page("Published"), draft.revisionId, draft.revisionVersion);
     expect(published.draft.document).toEqual(published.published.document);
+    expect(published.published.document.leftPanel.date).toBe("2027-01-01");
     savePage(created.id, page("Private edit"), published.draft.revisionId, published.draft.revisionVersion);
     expect(getPage(created.id, "published")?.document.leftPanel.title).toBe("Published");
     expect(listPages()[0].status).toBe("UNPUBLISHED_CHANGES");
@@ -291,5 +294,93 @@ describe("shared journal rendering", () => {
     expect(html).toContain("Tailor made travel");
     expect(html).toContain("Dear traveler");
     expect(html).toContain("safari-spread");
+  });
+  it("renders a single normalized legacy date and no placeholder for a missing date", () => {
+    const legacyRange = page("Legacy range") as SafariPageDocument & { leftPanel: SafariPageDocument["leftPanel"] & { startDate?: string; endDate?: string } };
+    delete legacyRange.leftPanel.date;
+    legacyRange.leftPanel.startDate = "2026-11-21";
+    legacyRange.leftPanel.endDate = "2026-11-23";
+    const endOnly = page("End only") as typeof legacyRange;
+    delete endOnly.leftPanel.date;
+    endOnly.leftPanel.endDate = "2026-11-23";
+    const missing = page("Undated");
+    delete missing.leftPanel.date;
+    const html = renderToStaticMarkup(createElement(SafariJournalRenderer, { pages: [
+      { id: "range", document: legacyRange },
+      { id: "end", document: endOnly },
+      { id: "missing", document: missing },
+    ], media: [] }));
+    expect(html).toContain('<time dateTime="2026-11-21">November 21, 2026</time>');
+    expect(html).toContain('<time dateTime="2026-11-23">November 23, 2026</time>');
+    expect(html).not.toContain("November 21, 2026 — November 23, 2026");
+    expect(html).not.toContain("Invalid Date");
+    expect((html.match(/<time/g) || [])).toHaveLength(2);
+  });
+});
+
+describe("canonical Safari Page dates", () => {
+  it.each(["0000-01-01", "2026-02-29", "2026-04-31", "2026-11-1", "not-a-date"])("rejects invalid calendar date %s", (date) => {
+    expect(() => validatePage(page("Invalid", date))).toThrow(/valid calendar date/i);
+  });
+  it.each(["2024-02-29", "2026-11-21"])("accepts valid calendar date %s", (date) => {
+    expect(() => validatePage(page("Valid", date))).not.toThrow();
+  });
+  it("allows pages without a date", () => {
+    const undated = page("Undated");
+    delete undated.leftPanel.date;
+    expect(() => validatePage(undated)).not.toThrow();
+  });
+  it("normalizes legacy precedence idempotently and persists only the canonical field on save", () => {
+    const legacy = page("Legacy") as SafariPageDocument & { leftPanel: SafariPageDocument["leftPanel"] & { startDate?: string; endDate?: string } };
+    delete legacy.leftPanel.date;
+    legacy.leftPanel.startDate = "2026-11-21";
+    legacy.leftPanel.endDate = "2026-11-23";
+    expect(normalizePageDocument(normalizePageDocument(legacy))).toEqual(normalizePageDocument(legacy));
+    expect(normalizePageDocument(legacy).leftPanel.date).toBe("2026-11-21");
+    const created = createPage(), draft = getPage(created.id, "draft")!;
+    const saved = savePage(created.id, legacy, draft.revisionId, draft.revisionVersion)!;
+    const stored = (db().prepare("SELECT document_json FROM safari_page_revisions WHERE id=?").get(saved.revisionId) as { document_json: string }).document_json;
+    expect(JSON.parse(stored).leftPanel).toMatchObject({ date: "2026-11-21" });
+    expect(stored).not.toContain("startDate");
+    expect(stored).not.toContain("endDate");
+  });
+  it("normalizes reads without mutating historical published revision JSON", () => {
+    const created = createPage(), draft = getPage(created.id, "draft")!, legacy = page("Historical") as SafariPageDocument & { leftPanel: SafariPageDocument["leftPanel"] & { startDate?: string; endDate?: string } };
+    delete legacy.leftPanel.date;
+    legacy.leftPanel.startDate = "2026-11-21";
+    legacy.leftPanel.endDate = "2026-11-23";
+    const original = JSON.stringify(legacy), stamp = new Date().toISOString();
+    db().prepare("UPDATE safari_page_revisions SET document_json=?,state='PUBLISHED',published_at=? WHERE id=?").run(original, stamp, draft.revisionId);
+    db().prepare("UPDATE safari_pages SET published_revision_id=? WHERE id=?").run(draft.revisionId, created.id);
+    expect(getPage(created.id, "published")?.document.leftPanel.date).toBe("2026-11-21");
+    expect(listPublishedPages()[0].document.leftPanel.date).toBe("2026-11-21");
+    expect((db().prepare("SELECT document_json FROM safari_page_revisions WHERE id=?").get(draft.revisionId) as { document_json: string }).document_json).toBe(original);
+  });
+  it("orders canonical and legacy dates chronologically with deterministic undated ordering", () => {
+    const ids = [createPage(), createPage(), createPage(), createPage()];
+    const docs = [page("Undated one"), page("Legacy end"), page("Canonical"), page("Undated two")];
+    delete docs[0].leftPanel.date;
+    delete docs[3].leftPanel.date;
+    const legacy = docs[1] as SafariPageDocument & { leftPanel: SafariPageDocument["leftPanel"] & { endDate?: string } };
+    delete legacy.leftPanel.date;
+    legacy.leftPanel.endDate = "2026-11-20";
+    docs[2].leftPanel.date = "2026-11-21";
+    ids.forEach((created, index) => {
+      const draft = getPage(created.id, "draft")!, stamp = new Date().toISOString();
+      db().prepare("UPDATE safari_page_revisions SET document_json=?,state='PUBLISHED',published_at=? WHERE id=?").run(JSON.stringify(docs[index]), stamp, draft.revisionId);
+      db().prepare("UPDATE safari_pages SET published_revision_id=? WHERE id=?").run(draft.revisionId, created.id);
+    });
+    expect(listPublishedPages().map((item) => item.document.leftPanel.title)).toEqual(["Legacy end", "Canonical", "Undated one", "Undated two"]);
+  });
+  it("formats the same calendar value in different server timezones", () => {
+    const prior = process.env.TZ;
+    process.env.TZ = "Pacific/Honolulu";
+    const west = formatPageDate("2026-11-21");
+    process.env.TZ = "Pacific/Kiritimati";
+    const east = formatPageDate("2026-11-21");
+    if (prior === undefined) delete process.env.TZ;
+    else process.env.TZ = prior;
+    expect(west).toBe("November 21, 2026");
+    expect(east).toBe(west);
   });
 });
