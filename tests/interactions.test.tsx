@@ -4,13 +4,16 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
 import { ActionMenu } from "@/components/ActionMenu";
-import { Carousel, ContentBlocks } from "@/components/SafariJournalRenderer";
+import { Carousel, ContentBlocks, SafariJournalRenderer } from "@/components/SafariJournalRenderer";
 import { PageEditor } from "@/components/PageEditor";
 import type { MediaRecord, SafariPageDocument } from "@/types";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.history.replaceState(null, "", "/");
+});
 describe("Safari Page date editing", () => {
   it("shows one restored page date and marks the draft dirty when it changes", () => {
     const initial: SafariPageDocument = {
@@ -93,7 +96,7 @@ describe("shared carousel interactions", () => {
     render(<Carousel ids={["two", "one", "three"]} media={media} />);
     const region = screen.getByRole("region", { name: "Page image carousel" });
     expect(screen.getByRole("img")).toHaveAttribute("alt", "Photo 2");
-    expect(screen.getByText("1 / 3")).toBeInTheDocument();
+    expect(document.querySelector(".carousel-position")).toHaveTextContent("01 / 03 photos");
     await user.click(screen.getByRole("button", { name: "Next image" }));
     expect(screen.getByRole("img")).toHaveAttribute("alt", "Photo 1");
     region.focus();
@@ -130,11 +133,11 @@ describe("shared carousel interactions", () => {
     );
     expect(screen.getAllByRole("img")).toHaveLength(1);
     expect(screen.getByRole("img")).toHaveAttribute("alt", "Photo 1");
-    expect(screen.getByText("1 / 3")).toBeInTheDocument();
+    expect(document.querySelector(".carousel-position")).toHaveTextContent("01 / 03 photos");
     expect(document.querySelector(".image-grid")).toBeNull();
     await user.click(screen.getByRole("button", { name: "Next image" }));
     expect(screen.getByRole("img")).toHaveAttribute("alt", "Photo 2");
-    expect(screen.getByText("2 / 3")).toBeInTheDocument();
+    expect(document.querySelector(".carousel-position")).toHaveTextContent("02 / 03 photos");
     await user.click(screen.getByRole("button", { name: "Previous image" }));
     expect(screen.getByRole("img")).toHaveAttribute("alt", "Photo 1");
   });
@@ -142,6 +145,106 @@ describe("shared carousel interactions", () => {
     render(<Carousel ids={["one", "two"]} media={media} />);
     fireEvent.error(screen.getByRole("img"));
     expect(screen.getByRole("img", { name: "Photo 1 unavailable" })).toHaveTextContent("Image unavailable");
-    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    expect(document.querySelector(".carousel-position")).toHaveTextContent("01 / 02 photos");
+  });
+  it("keeps multiple carousel states independent", async () => {
+    const user = userEvent.setup();
+    render(<ContentBlocks blocks={[
+      { id: "first", type: "carousel", mediaIds: ["one", "two"] },
+      { id: "second", type: "imageGrid", mediaIds: ["two", "three"] },
+    ]} media={media} />);
+    const carousels = screen.getAllByRole("region", { name: "Page image carousel" });
+    expect(carousels[0]).toHaveTextContent("01 / 02 photos");
+    expect(carousels[1]).toHaveTextContent("01 / 02 photos");
+    await user.click(screen.getAllByRole("button", { name: "Next image" })[1]);
+    expect(carousels[0].querySelector("img")).toHaveAttribute("alt", "Photo 1");
+    expect(carousels[1].querySelector("img")).toHaveAttribute("alt", "Photo 3");
+    expect(carousels[0]).toHaveTextContent("01 / 02 photos");
+    expect(carousels[1]).toHaveTextContent("02 / 02 photos");
+  });
+});
+
+describe("public Safari Page navigation", () => {
+  const media: MediaRecord[] = ["hero-one", "hero-two", "photo-one", "photo-two"].map((id, index) => ({
+    id,
+    originalName: `${id}.jpg`,
+    mimeType: "image/jpeg",
+    width: 1200,
+    height: 800,
+    tags: ["test"],
+    altText: `Journal image ${index + 1}`,
+    createdAt: "2026-01-01T00:00:00Z",
+  }));
+  const pages: Array<{ id: string; document: SafariPageDocument }> = [
+    {
+      id: "first",
+      document: {
+        leftPanel: { eyebrow: "A SUB SECTION", title: "First hero", heroMediaId: "hero-one" },
+        rightPanel: { blocks: [
+          { id: "first-heading", type: "heading", text: "First story" },
+          { id: "first-copy", type: "paragraph", text: "First paragraph" },
+          { id: "first-carousel", type: "carousel", mediaIds: ["photo-one", "photo-two"] },
+        ] },
+      },
+    },
+    {
+      id: "second",
+      document: {
+        leftPanel: { eyebrow: "Safari journal", title: "Second hero", heroMediaId: "hero-two" },
+        rightPanel: { blocks: [
+          { id: "second-heading", type: "heading", text: "Second story" },
+          { id: "second-copy", type: "paragraph", text: "Second paragraph" },
+        ] },
+      },
+    },
+  ];
+
+  it("updates both panels, reports boundaries, and isolates page and image controls", async () => {
+    const user = userEvent.setup();
+    render(<SafariJournalRenderer pages={pages} media={media} />);
+    expect(document.querySelector(".page-position")).toHaveTextContent("01 / 02");
+    expect(screen.getByRole("button", { name: "Previous Safari Page" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Next Safari Page" })).toBeEnabled();
+    expect(screen.getByRole("heading", { name: "First hero" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "First story" })).toBeInTheDocument();
+    expect(screen.queryByText("A SUB SECTION")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Next image" }));
+    expect(document.querySelector(".page-position")).toHaveTextContent("01 / 02");
+    expect(screen.getByRole("heading", { name: "First hero" })).toBeInTheDocument();
+
+    screen.getByRole("button", { name: "Next Safari Page" }).focus();
+    await user.keyboard("{Enter}");
+    expect(document.querySelector(".page-position")).toHaveTextContent("02 / 02");
+    expect(screen.getByRole("heading", { name: "Second hero" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Second story" })).toBeInTheDocument();
+    expect(screen.queryByText("First paragraph")).toBeNull();
+    expect(screen.getByRole("button", { name: "Next Safari Page" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Previous Safari Page" })).toBeEnabled();
+    expect(window.location.hash).toBe("#page-second");
+  });
+
+  it("restores deep links and keeps persisted editorial block order", async () => {
+    window.history.replaceState(null, "", "#page-second");
+    render(<SafariJournalRenderer pages={pages} media={media} />);
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Second hero" })).toBeInTheDocument());
+    expect(document.querySelector(".page-position")).toHaveTextContent("02 / 02");
+
+    window.history.pushState(null, "", "#page-first");
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "First hero" })).toBeInTheDocument());
+    const heading = screen.getByRole("heading", { name: "First story" });
+    const paragraph = screen.getByText("First paragraph");
+    const carousel = screen.getByRole("region", { name: "Page image carousel" });
+    expect(heading.compareDocumentPosition(paragraph) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(paragraph.compareDocumentPosition(carousel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("retains subsection metadata in draft preview while suppressing only the public label", () => {
+    const { rerender } = render(<SafariJournalRenderer pages={[pages[0]]} media={media} />);
+    expect(screen.queryByText("A SUB SECTION")).toBeNull();
+    rerender(<SafariJournalRenderer preview pages={[pages[0]]} media={media} />);
+    expect(screen.getByText("A SUB SECTION")).toBeInTheDocument();
+    expect(screen.getByText(/Draft preview/)).toBeInTheDocument();
   });
 });

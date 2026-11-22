@@ -2155,3 +2155,157 @@ body.modal-open {
   padding: 0.4rem;
   border: 1px solid var(--line);
 }
+
+/* Public Safari Page navigation and editorial reading surface. */
+@media (min-width: 761px) {
+  .journal-header {
+    right: 50%;
+  }
+  .journal .safari-spread {
+    height: 100vh;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .journal .spread-story {
+    height: 100vh;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+}
+.spread-story {
+  padding: 0;
+}
+.spread-story-content {
+  width: min(100%, 48rem);
+  margin: 0 auto;
+  padding: clamp(4rem, 8vw, 7rem) clamp(2rem, 7vw, 7rem);
+}
+.spread-story-content > :first-child {
+  margin-top: 0;
+}
+.spread-story-content > :last-child {
+  margin-bottom: 0;
+}
+.spread-story-content > p:not(.editorial-subtitle) {
+  max-width: 42rem;
+  white-space: pre-wrap;
+  font: clamp(1.05rem, 1.5vw, 1.25rem) / 1.85 var(--serif);
+}
+.spread-story-content ul {
+  padding-left: 1.2rem;
+  font: 1.05rem/1.75 var(--serif);
+}
+.spread-story-content li {
+  padding: 0.3rem 0;
+}
+.page-navigation {
+  position: sticky;
+  z-index: 5;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 5rem;
+  padding: 1.25rem clamp(2rem, 7vw, 7rem);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--paper) 96%, transparent);
+  backdrop-filter: blur(8px);
+}
+.page-navigation-title,
+.page-position,
+.carousel-position {
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+.page-navigation-controls,
+.carousel-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.page-navigation button,
+.carousel-buttons button {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: 1.35rem/1 var(--serif);
+}
+.page-navigation button:focus-visible,
+.carousel-buttons button:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 2px;
+}
+.page-navigation button:disabled {
+  cursor: default;
+  opacity: 0.28;
+}
+
+/* One photograph at a time, with quiet controls below the image. */
+.spread-story .carousel {
+  min-height: 0;
+  margin: clamp(3rem, 7vw, 5rem) 0;
+  overflow: visible;
+  aspect-ratio: auto;
+  background: transparent;
+  touch-action: pan-y;
+}
+.carousel-viewport {
+  width: 100%;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+  background: var(--olive);
+}
+.carousel-viewport > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.carousel-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 3.5rem;
+  border-bottom: 1px solid var(--line);
+}
+.carousel-position {
+  position: static;
+  padding: 0;
+  background: transparent;
+  color: var(--ink);
+}
+.carousel-position span {
+  color: var(--muted);
+}
+.spread-story .carousel:focus {
+  outline: none;
+}
+.spread-story .carousel:focus-visible .carousel-viewport {
+  outline: 2px solid var(--copper);
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .journal-header {
+    right: 0;
+  }
+  .spread-story-content {
+    padding: 4rem 1.35rem;
+  }
+  .page-navigation {
+    min-height: 4rem;
+    padding: 0.75rem 1.1rem;
+  }
+  .page-navigation-controls {
+    gap: 0.35rem;
+  }
+  .spread-story .carousel {
+    margin: 3rem 0;
+  }
+}

@@ -5,7 +5,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { db } from "@/lib/db";
 import { createPage, deletePage, duplicatePage, getPage, listPages, listPublishedPages, mediaAllocations, migrateLegacyPages, movePage, pageMediaIsPublished, publishPage, savePage, setJournalInclusion, unpublishPage, validatePage } from "@/lib/pages";
-import { SafariJournalRenderer } from "@/components/SafariJournalRenderer";
+import { SafariJournalRenderer, SafariPageSpread } from "@/components/SafariJournalRenderer";
 import { formatPageDate, normalizePageDocument } from "@/lib/page-date";
 import type { ItineraryDocument, MediaRecord, SafariPageDocument } from "@/types";
 
@@ -104,6 +104,18 @@ describe("independent Safari Pages", () => {
     expect(listPublishedPages().map((v) => v.document.leftPanel.title)).toEqual(["Later"]);
     deletePage(early.id);
     expect(listPages()).toHaveLength(1);
+  });
+  it("returns only published, journal-included pages to the visitor renderer", () => {
+    const included = createPage(),
+      excluded = createPage(),
+      draftOnly = createPage(),
+      includedDraft = getPage(included.id, "draft")!,
+      excludedDraft = getPage(excluded.id, "draft")!;
+    publishPage(included.id, page("Included", "2027-01-02"), includedDraft.revisionId, includedDraft.revisionVersion);
+    publishPage(excluded.id, page("Excluded", "2027-01-01"), excludedDraft.revisionId, excludedDraft.revisionVersion);
+    setJournalInclusion(excluded.id, false);
+    expect(getPage(draftOnly.id, "published")).toBeNull();
+    expect(listPublishedPages().map((item) => item.document.leftPanel.title)).toEqual(["Included"]);
   });
   it("duplicates editorial structure into an independent draft", () => {
     const created = createPage(),
@@ -306,11 +318,11 @@ describe("shared journal rendering", () => {
     endOnly.leftPanel.endDate = "2026-11-23";
     const missing = page("Undated");
     delete missing.leftPanel.date;
-    const html = renderToStaticMarkup(createElement(SafariJournalRenderer, { pages: [
-      { id: "range", document: legacyRange },
-      { id: "end", document: endOnly },
-      { id: "missing", document: missing },
-    ], media: [] }));
+    const html = renderToStaticMarkup(createElement("div", null,
+      createElement(SafariPageSpread, { page: legacyRange, media: [] }),
+      createElement(SafariPageSpread, { page: endOnly, media: [] }),
+      createElement(SafariPageSpread, { page: missing, media: [] }),
+    ));
     expect(html).toContain('<time dateTime="2026-11-21">November 21, 2026</time>');
     expect(html).toContain('<time dateTime="2026-11-23">November 23, 2026</time>');
     expect(html).not.toContain("November 21, 2026 — November 23, 2026");

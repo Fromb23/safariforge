@@ -152,10 +152,9 @@ function assert(condition: unknown, message: string): asserts condition {
 
 async function verifyPosition(
   page: Page,
-  index: number,
   position: LeftPanel["overlayPosition"],
 ) {
-  const spread = page.locator(".safari-spread").nth(index);
+  const spread = page.locator(".safari-spread").first();
   await spread.scrollIntoViewIfNeeded();
   const hero = await spread.locator(".spread-hero").boundingBox();
   const copy = await spread.locator(".spread-copy").boundingBox();
@@ -231,7 +230,7 @@ try {
       await page.goto(origin, { waitUntil: "networkidle" });
       await page.locator(".spread-hero > img").first().waitFor();
       const loadedImages = await page
-        .locator(".spread-hero > img, .carousel > img")
+        .locator(".spread-hero > img, .carousel-viewport > img")
         .evaluateAll((images) =>
           images.every(
             (image) =>
@@ -240,18 +239,10 @@ try {
           ),
         );
       assert(loadedImages, "A hero or carousel fixture failed to load");
-      for (const [index, position] of positions.entries()) {
-        await verifyPosition(page, index, position);
-        await page
-          .locator(".safari-spread")
-          .nth(index)
-          .screenshot({
-            path: path.join(
-              outputDir,
-              `${viewport.width}x${viewport.height}-${position}.png`,
-            ),
-          });
-      }
+      assert((await page.locator(".safari-spread").count()) === 1, "Public journal rendered more than one active Safari Page");
+      assert((await page.locator(".page-position").textContent())?.trim() === "01 / 04", "Initial Safari Page counter was not 01 / 04");
+      assert(await page.getByRole("button", { name: "Previous Safari Page" }).isDisabled(), "Previous Safari Page was enabled at the first page");
+      assert((await page.getByText("A SUB SECTION", { exact: true }).count()) === 0, "A SUB SECTION remained visible to public visitors");
       const heroDate = page.locator(".safari-spread").first().locator(".spread-copy time");
       assert((await heroDate.count()) === 1, "Left hero did not render exactly one date");
       assert((await heroDate.textContent())?.trim() === "January 1, 2027", "Left hero date was not the expected single formatted calendar date");
@@ -270,8 +261,8 @@ try {
       );
       assert(
         (await carousel.locator(".carousel-position").textContent())?.trim() ===
-          "1 / 3",
-        "Initial carousel counter was not 1 / 3",
+          "01 / 03 photos",
+        "Initial carousel counter was not 01 / 03 PHOTOS",
       );
       await carousel.screenshot({
         path: path.join(
@@ -283,8 +274,8 @@ try {
       await carousel.getByRole("button", { name: "Next image" }).click();
       assert(
         (await carousel.locator(".carousel-position").textContent())?.trim() ===
-          "2 / 3",
-        "Next did not advance the counter to 2 / 3",
+          "02 / 03 photos",
+        "Next did not advance the counter to 02 / 03 PHOTOS",
       );
       assert(
         (await carousel.locator("img").getAttribute("src")) !== firstSource,
@@ -296,6 +287,21 @@ try {
           `${viewport.width}x${viewport.height}-carousel-second.png`,
         ),
       });
+      assert((await page.locator(".page-position").textContent())?.trim() === "01 / 04", "Carousel navigation changed the Safari Page counter");
+      for (const [index, position] of positions.entries()) {
+        await verifyPosition(page, position);
+        await page.locator(".safari-spread").screenshot({
+          path: path.join(outputDir, `${viewport.width}x${viewport.height}-${position}.png`),
+        });
+        if (index < positions.length - 1) {
+          await page.getByRole("button", { name: "Next Safari Page" }).click();
+          await page.locator(".page-position").filter({ hasText: `0${index + 2} / 04` }).waitFor();
+          assert((await page.locator(".page-position").textContent())?.trim() === `0${index + 2} / 04`, "Safari Page counter did not advance");
+        }
+      }
+      assert(await page.getByRole("button", { name: "Next Safari Page" }).isDisabled(), "Next Safari Page was enabled at the last page");
+      await page.goBack({ waitUntil: "networkidle" });
+      assert((await page.locator(".page-position").textContent())?.trim() === "03 / 04", "Browser history did not restore the preceding Safari Page");
       await page.goto(adminAccessUrl, { waitUntil: "networkidle" });
       await page.goto(`${origin}/admin/pages/${firstPageId}/preview`, {
         waitUntil: "networkidle",
@@ -304,7 +310,7 @@ try {
         await page.locator(".preview-banner").isVisible(),
         "Authenticated draft preview did not load",
       );
-      await verifyPosition(page, 0, "top-left");
+      await verifyPosition(page, "top-left");
       assert(
         (await page.locator(".carousel img").count()) === 1,
         "Draft preview did not use the shared carousel presentation",
@@ -355,13 +361,22 @@ try {
       );
       await page.close();
     }
+    const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    await mobile.goto(origin, { waitUntil: "networkidle" });
+    assert(await mobile.locator(".page-navigation").isVisible(), "Safari Page navigation was not visible on mobile");
+    assert(await mobile.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "Mobile journal introduced horizontal scrolling");
+    await mobile.getByRole("button", { name: "Next Safari Page" }).click();
+    assert((await mobile.locator(".page-position").textContent())?.trim() === "02 / 04", "Mobile Safari Page navigation did not advance");
+    assert(await mobile.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "Navigated mobile journal introduced horizontal scrolling");
+    await mobile.screenshot({ path: path.join(outputDir, "390x844-mobile.png"), fullPage: true });
+    await mobile.close();
   } finally {
     await browser.close();
   }
   console.log(
     JSON.stringify(
       {
-        viewports: ["1366x768", "1600x900", "1920x1080"],
+        viewports: ["1366x768", "1600x900", "1920x1080", "390x844"],
         positions,
         carousel: ["first", "second"],
         screenshots: outputDir,
