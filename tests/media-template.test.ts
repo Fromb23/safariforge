@@ -1,3 +1,4 @@
+import "./setup-node";
 import { beforeEach,describe,expect,it } from "vitest";import { randomUUID } from "node:crypto";import { db } from "@/lib/db";import { deleteMediaRecord,deleteTemplate,listTemplates,saveTemplate,updateMedia } from "@/lib/documents";
 beforeEach(()=>db().exec("DELETE FROM revision_media; DELETE FROM revisions; DELETE FROM itineraries; DELETE FROM templates; DELETE FROM media;"));
 function media(){const id=randomUUID();db().prepare("INSERT INTO media(id,storage_key,thumbnail_key,original_name,mime_type,size_bytes,sha256,width,height,tags_json,alt_text,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)").run(id,`${randomUUID()}.jpg`,`${randomUUID()}.webp`,"elephant.jpg","image/jpeg",10,randomUUID(),100,80,'["elephant"]',"Elephant",new Date().toISOString());return id}
