@@ -46,6 +46,10 @@ const requested = [
   "SafariForge-images/Cheetahs.jpeg.jpg",
   "SafariForge-images/Lions at Ngorongoro Crater.jpg",
   "SafariForge-images/Pride of Lion.jpeg.jpg",
+  "SafariForge-images/Baby Gazelle at Ngorongoro.jpg",
+  "SafariForge-images/Serengeti Vast Plain.jpg",
+  "SafariForge-images/Zebra_1.jpeg.jpg",
+  "SafariForge-images/Girrafes.jpeg.jpg",
 ];
 const sourceFiles = new Map(archive.files.map((entry) => [entry.path, entry]));
 const mediaIds: string[] = [];
@@ -81,6 +85,10 @@ for (const [index, sourceName] of requested.entries()) {
         "Cheetahs",
         "Lions",
         "Lion pride",
+        "Baby gazelle",
+        "Serengeti plain",
+        "Zebra",
+        "Giraffes",
       ][index],
       new Date().toISOString(),
     );
@@ -101,7 +109,7 @@ for (const [index, overlayPosition] of positions.entries()) {
   const document: SafariPageDocument = {
     leftPanel: {
       eyebrow: "A SUB SECTION",
-      title: "Title Safari Page With A Deliberately Long Editorial Heading",
+      title: index === 0 ? "Title Safari Page With A Deliberately Long Editorial Heading" : ["", "Across the open plains", "Wildlife at the crater", "A final evening"] [index],
       location: "Serengeti, Tanzania",
       date: `2027-01-0${index + 1}`,
       heroMediaId: mediaIds[index],
@@ -110,7 +118,7 @@ for (const [index, overlayPosition] of positions.entries()) {
     },
     rightPanel: {
       blocks: [
-        { id: `heading-${index}`, type: "heading", text: "First header" },
+        { id: `heading-${index}`, type: "heading", text: `Editorial chapter ${index + 1}` },
         ...(index === 0
           ? [
               {
@@ -119,13 +127,18 @@ for (const [index, overlayPosition] of positions.entries()) {
                 mediaIds: mediaIds.slice(4, 7),
               },
             ]
-          : [
+          : index < 3 ? [
+              {
+                id: `carousel-${index}`,
+                type: "carousel" as const,
+                mediaIds: index === 1 ? mediaIds.slice(7, 9) : mediaIds.slice(9, 11),
+              },
               {
                 id: `paragraph-${index}`,
                 type: "paragraph" as const,
-                text: "A quiet editorial passage confirms the two-panel visitor layout.",
+                text: index === 1 ? "A quiet editorial passage confirms the two-panel visitor layout. ".repeat(24) : "A distinct editorial passage accompanies this page's own hero.",
               },
-            ]),
+            ] : [{ id: `paragraph-${index}`, type: "paragraph" as const, text: "The closing page remains paired with its own photographic hero." }]),
       ],
     },
   };
@@ -153,8 +166,9 @@ function assert(condition: unknown, message: string): asserts condition {
 async function verifyPosition(
   page: Page,
   position: LeftPanel["overlayPosition"],
+  index = 0,
 ) {
-  const spread = page.locator(".safari-spread").first();
+  const spread = page.locator(".safari-spread").nth(index);
   await spread.scrollIntoViewIfNeeded();
   const hero = await spread.locator(".spread-hero").boundingBox();
   const copy = await spread.locator(".spread-copy").boundingBox();
@@ -239,13 +253,22 @@ try {
           ),
         );
       assert(loadedImages, "A hero or carousel fixture failed to load");
-      assert((await page.locator(".safari-spread").count()) === 1, "Public journal rendered more than one active Safari Page");
-      assert((await page.locator(".page-position").textContent())?.trim() === "01 / 04", "Initial Safari Page counter was not 01 / 04");
-      assert(await page.getByRole("button", { name: "Previous Safari Page" }).isDisabled(), "Previous Safari Page was enabled at the first page");
+      assert((await page.locator(".safari-spread").count()) === 4, "Public journal did not render all four Safari Pages continuously");
+      assert((await page.locator(".page-navigation, .page-position").count()) === 0, "Manual Safari Page navigation remained visible");
+      assert((await page.getByRole("button", { name: /Safari Page/ }).count()) === 0, "Previous or next Safari Page controls remained visible");
+      assert((await page.getByRole("dialog", { name: "Table of Contents" }).count()) === 0, "Table of Contents was open initially");
       assert((await page.getByText("A SUB SECTION", { exact: true }).count()) === 0, "A SUB SECTION remained visible to public visitors");
-      const heroDate = page.locator(".safari-spread").first().locator(".spread-copy time");
-      assert((await heroDate.count()) === 1, "Left hero did not render exactly one date");
-      assert((await heroDate.textContent())?.trim() === "January 1, 2027", "Left hero date was not the expected single formatted calendar date");
+      const dates = await page.locator(".safari-spread .spread-copy time").allTextContents();
+      assert(dates.join("|") === "January 1, 2027|January 2, 2027|January 3, 2027|January 4, 2027", "Safari Page dates did not remain paired and ordered");
+      const heroSources = await page.locator(".safari-spread .spread-hero > img").evaluateAll((images) => images.map((image) => (image as HTMLImageElement).getAttribute("src")));
+      assert(new Set(heroSources).size === 4, "Safari Page spreads did not retain four distinct heroes");
+      for (let index = 0; index < 4; index++) {
+        const spread = page.locator(".safari-spread").nth(index);
+        assert((await spread.locator(".spread-hero").count()) === 1 && (await spread.locator(".spread-story").count()) === 1, `Spread ${index + 1} did not contain its paired hero and story`);
+        assert(await spread.getByText(`Editorial chapter ${index + 1}`, { exact: true }).isVisible(), `Spread ${index + 1} lost its editorial content`);
+      }
+      const longSpreadHeight = await page.locator(".safari-spread").nth(1).evaluate((spread) => spread.getBoundingClientRect().height);
+      assert(longSpreadHeight > viewport.height * 1.5, "Long editorial content was clipped to a viewport-height spread");
       const carousel = page
         .locator(".safari-spread")
         .first()
@@ -287,21 +310,33 @@ try {
           `${viewport.width}x${viewport.height}-carousel-second.png`,
         ),
       });
-      assert((await page.locator(".page-position").textContent())?.trim() === "01 / 04", "Carousel navigation changed the Safari Page counter");
+      const secondCarousel = page.locator(".safari-spread").nth(1).locator(".carousel");
+      assert((await secondCarousel.locator(".carousel-position").textContent())?.trim() === "01 / 02 photos", "Second carousel did not keep independent initial state");
       for (const [index, position] of positions.entries()) {
-        await verifyPosition(page, position);
-        await page.locator(".safari-spread").screenshot({
+        await verifyPosition(page, position, index);
+        await page.locator(".safari-spread").nth(index).screenshot({
           path: path.join(outputDir, `${viewport.width}x${viewport.height}-${position}.png`),
         });
-        if (index < positions.length - 1) {
-          await page.getByRole("button", { name: "Next Safari Page" }).click();
-          await page.locator(".page-position").filter({ hasText: `0${index + 2} / 04` }).waitFor();
-          assert((await page.locator(".page-position").textContent())?.trim() === `0${index + 2} / 04`, "Safari Page counter did not advance");
-        }
       }
-      assert(await page.getByRole("button", { name: "Next Safari Page" }).isDisabled(), "Next Safari Page was enabled at the last page");
-      await page.goBack({ waitUntil: "networkidle" });
-      assert((await page.locator(".page-position").textContent())?.trim() === "03 / 04", "Browser history did not restore the preceding Safari Page");
+      await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+      const scrollBefore = await page.evaluate(() => window.scrollY);
+      const secondTop = await page.locator(".safari-spread").nth(1).evaluate((section) => (section as HTMLElement).offsetTop);
+      await page.mouse.wheel(0, secondTop + 10);
+      await page.waitForFunction((minimum) => window.scrollY >= minimum, Math.min(secondTop, viewport.height));
+      const scrollAfter = await page.evaluate(() => window.scrollY);
+      assert(scrollAfter > scrollBefore, "Ordinary vertical scrolling did not advance to the next complete spread");
+      await page.evaluate((top) => window.scrollTo({ top, behavior: "instant" }), secondTop);
+      const secondSectionId = await page.locator(".safari-spread").nth(1).getAttribute("id");
+      await page.getByRole("button", { name: "Open Table of Contents" }).click();
+      const contents = page.getByRole("dialog", { name: "Table of Contents" });
+      assert(await contents.isVisible(), "Table of Contents did not open from the menu icon");
+      await page.waitForFunction((id) => document.querySelector('#journal-contents a[aria-current="location"]')?.getAttribute("href") === `#${id}`, secondSectionId);
+      await contents.getByRole("link", { name: /Wildlife at the crater/ }).click();
+      assert((await contents.count()) === 0, "Table of Contents did not close after section selection");
+      assert(page.url().endsWith(`#page-${encodeURIComponent((await page.locator(".safari-spread").nth(2).getAttribute("id"))!.replace(/^page-/, ""))}`), "Section selection did not update the fragment URL");
+      await page.reload({ waitUntil: "networkidle" });
+      assert(page.url().includes("#page-"), "Direct section fragment did not survive refresh");
+      assert(await page.locator(".safari-spread").nth(2).isVisible(), "Direct section refresh did not retain the target spread");
       await page.goto(adminAccessUrl, { waitUntil: "networkidle" });
       await page.goto(`${origin}/admin/pages/${firstPageId}/preview`, {
         waitUntil: "networkidle",
@@ -363,11 +398,17 @@ try {
     }
     const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
     await mobile.goto(origin, { waitUntil: "networkidle" });
-    assert(await mobile.locator(".page-navigation").isVisible(), "Safari Page navigation was not visible on mobile");
+    assert((await mobile.locator(".safari-spread").count()) === 4, "Mobile journal did not render every spread");
+    assert((await mobile.locator(".page-navigation").count()) === 0, "Safari Page navigation remained on mobile");
     assert(await mobile.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "Mobile journal introduced horizontal scrolling");
-    await mobile.getByRole("button", { name: "Next Safari Page" }).click();
-    assert((await mobile.locator(".page-position").textContent())?.trim() === "02 / 04", "Mobile Safari Page navigation did not advance");
-    assert(await mobile.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "Navigated mobile journal introduced horizontal scrolling");
+    await mobile.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    const mobileBefore = await mobile.evaluate(() => window.scrollY);
+    const mobileSecondTop = await mobile.locator(".safari-spread").nth(1).evaluate((section) => (section as HTMLElement).offsetTop);
+    await mobile.mouse.wheel(0, mobileSecondTop + 10);
+    await mobile.waitForFunction((minimum) => window.scrollY >= minimum, Math.min(mobileSecondTop, 844));
+    assert((await mobile.evaluate(() => window.scrollY)) > mobileBefore, "Mobile journal did not advance through natural scrolling");
+    assert(await mobile.locator(".safari-spread").nth(1).getByText("Editorial chapter 2", { exact: true }).isVisible(), "Mobile second spread lost its paired editorial panel");
+    assert(await mobile.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), "Scrolled mobile journal introduced horizontal scrolling");
     await mobile.screenshot({ path: path.join(outputDir, "390x844-mobile.png"), fullPage: true });
     await mobile.close();
   } finally {

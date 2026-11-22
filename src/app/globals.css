@@ -2156,17 +2156,25 @@ body.modal-open {
   border: 1px solid var(--line);
 }
 
-/* Public Safari Page navigation and editorial reading surface. */
+/* Public continuous Safari journal and editorial reading surface. */
 @media (min-width: 761px) {
   .journal-header {
-    right: 50%;
+    right: 0;
+    background: linear-gradient(to right, #172219c7 0 50%, transparent 50%);
   }
-  .journal .safari-spread {
+  .journal:not(.is-preview) .safari-spread {
+    min-height: 100vh;
+  }
+  .journal.is-preview .journal-header {
+    right: 50%;
+    background: linear-gradient(#172219c7, transparent);
+  }
+  .journal.is-preview .safari-spread {
     height: 100vh;
     min-height: 0;
     overflow: hidden;
   }
-  .journal .spread-story {
+  .journal.is-preview .spread-story {
     height: 100vh;
     min-height: 0;
     overflow-y: auto;
@@ -2199,34 +2207,17 @@ body.modal-open {
 .spread-story-content li {
   padding: 0.3rem 0;
 }
-.page-navigation {
-  position: sticky;
-  z-index: 5;
-  top: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 5rem;
-  padding: 1.25rem clamp(2rem, 7vw, 7rem);
-  border-bottom: 1px solid var(--line);
-  background: color-mix(in srgb, var(--paper) 96%, transparent);
-  backdrop-filter: blur(8px);
-}
-.page-navigation-title,
-.page-position,
 .carousel-position {
   text-transform: uppercase;
   letter-spacing: 0.16em;
   font-size: 0.68rem;
   font-weight: 700;
 }
-.page-navigation-controls,
 .carousel-buttons {
   display: flex;
   align-items: center;
   gap: 0.8rem;
 }
-.page-navigation button,
 .carousel-buttons button {
   display: inline-grid;
   width: 2rem;
@@ -2237,14 +2228,103 @@ body.modal-open {
   background: transparent;
   font: 1.35rem/1 var(--serif);
 }
-.page-navigation button:focus-visible,
 .carousel-buttons button:focus-visible {
   outline: 2px solid var(--copper);
   outline-offset: 2px;
 }
-.page-navigation button:disabled {
-  cursor: default;
-  opacity: 0.28;
+.journal .contents-button {
+  cursor: pointer;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--paper) 92%, transparent);
+  box-shadow: 0 0.35rem 1.5rem #17201920;
+}
+.journal .contents-button:focus-visible,
+.contents-panel button:focus-visible,
+.contents-panel a:focus-visible {
+  outline: 2px solid var(--copper);
+  outline-offset: 3px;
+}
+.contents-backdrop {
+  position: fixed;
+  z-index: 60;
+  inset: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: #17201952;
+}
+.contents-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(27rem, calc(100vw - 2rem));
+  height: 100%;
+  padding: 1.5rem;
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: -1rem 0 3rem #17201938;
+}
+.contents-panel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+.contents-panel h2 {
+  margin: 0;
+  font: 400 2rem/1.1 var(--serif);
+}
+.contents-panel header button {
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: 2rem/1 var(--serif);
+}
+.contents-panel ol {
+  flex: 1;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.contents-panel li {
+  border-bottom: 1px solid var(--line);
+}
+.contents-panel a {
+  display: grid;
+  grid-template-columns: 2.5rem 1fr;
+  gap: 0.75rem;
+  padding: 1.2rem 0.5rem;
+  color: inherit;
+  text-decoration: none;
+}
+.contents-panel a[aria-current="location"] {
+  color: var(--copper);
+  background: color-mix(in srgb, var(--copper) 8%, transparent);
+}
+.contents-number {
+  padding-top: 0.2rem;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+}
+.contents-panel strong,
+.contents-panel time {
+  display: block;
+}
+.contents-panel strong {
+  font: 400 1.1rem/1.3 var(--serif);
+}
+.contents-panel time {
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 /* One photograph at a time, with quiet controls below the image. */
@@ -2298,12 +2378,12 @@ body.modal-open {
   .spread-story-content {
     padding: 4rem 1.35rem;
   }
-  .page-navigation {
-    min-height: 4rem;
-    padding: 0.75rem 1.1rem;
-  }
-  .page-navigation-controls {
-    gap: 0.35rem;
+  .journal .contents-button span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
   }
   .spread-story .carousel {
     margin: 3rem 0;

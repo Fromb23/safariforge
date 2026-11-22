@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import "@testing-library/jest-dom/vitest";
@@ -10,9 +10,15 @@ import type { MediaRecord, SafariPageDocument } from "@/types";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
+beforeEach(() => {
+  vi.stubGlobal("matchMedia", vi.fn().mockReturnValue({ matches: true }));
+  HTMLElement.prototype.scrollIntoView = vi.fn();
+});
+
 afterEach(() => {
   cleanup();
   window.history.replaceState(null, "", "/");
+  vi.unstubAllGlobals();
 });
 describe("Safari Page date editing", () => {
   it("shows one restored page date and marks the draft dirty when it changes", () => {
@@ -164,7 +170,7 @@ describe("shared carousel interactions", () => {
   });
 });
 
-describe("public Safari Page navigation", () => {
+describe("continuous public Safari journal", () => {
   const media: MediaRecord[] = ["hero-one", "hero-two", "photo-one", "photo-two"].map((id, index) => ({
     id,
     originalName: `${id}.jpg`,
@@ -199,45 +205,94 @@ describe("public Safari Page navigation", () => {
     },
   ];
 
-  it("updates both panels, reports boundaries, and isolates page and image controls", async () => {
+  it("renders every paired spread in order without manual Safari Page controls", async () => {
     const user = userEvent.setup();
     render(<SafariJournalRenderer pages={pages} media={media} />);
-    expect(document.querySelector(".page-position")).toHaveTextContent("01 / 02");
-    expect(screen.getByRole("button", { name: "Previous Safari Page" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Next Safari Page" })).toBeEnabled();
-    expect(screen.getByRole("heading", { name: "First hero" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "First story" })).toBeInTheDocument();
+    const spreads = document.querySelectorAll(".safari-spread");
+    expect(spreads).toHaveLength(2);
+    expect(spreads[0]).toHaveTextContent("First hero");
+    expect(spreads[0]).toHaveTextContent("First story");
+    expect(spreads[0]).not.toHaveTextContent("Second story");
+    expect(spreads[0].querySelector(".spread-hero img")).toHaveAttribute("src", "/api/media/hero-one/original");
+    expect(spreads[1]).toHaveTextContent("Second hero");
+    expect(spreads[1]).toHaveTextContent("Second story");
+    expect(spreads[1]).not.toHaveTextContent("First paragraph");
+    expect(spreads[1].querySelector(".spread-hero img")).toHaveAttribute("src", "/api/media/hero-two/original");
+    expect(screen.queryByRole("button", { name: /Safari Page/i })).toBeNull();
+    expect(document.querySelector(".page-position")).toBeNull();
     expect(screen.queryByText("A SUB SECTION")).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Next image" }));
-    expect(document.querySelector(".page-position")).toHaveTextContent("01 / 02");
-    expect(screen.getByRole("heading", { name: "First hero" })).toBeInTheDocument();
-
-    screen.getByRole("button", { name: "Next Safari Page" }).focus();
-    await user.keyboard("{Enter}");
-    expect(document.querySelector(".page-position")).toHaveTextContent("02 / 02");
-    expect(screen.getByRole("heading", { name: "Second hero" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Second story" })).toBeInTheDocument();
-    expect(screen.queryByText("First paragraph")).toBeNull();
-    expect(screen.getByRole("button", { name: "Next Safari Page" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Previous Safari Page" })).toBeEnabled();
-    expect(window.location.hash).toBe("#page-second");
+    expect(screen.getByRole("region", { name: "Page image carousel" })).toHaveTextContent("02 / 02 photos");
+    expect(spreads).toHaveLength(2);
   });
 
-  it("restores deep links and keeps persisted editorial block order", async () => {
+  it("keeps the contents hidden initially and closes it through every supported interaction", async () => {
+    const user = userEvent.setup();
+    render(<SafariJournalRenderer pages={pages} media={media} />);
+    const trigger = screen.getByRole("button", { name: "Open Table of Contents" });
+    expect(screen.queryByRole("dialog", { name: "Table of Contents" })).toBeNull();
+
+    await user.click(trigger);
+    expect(screen.getByRole("dialog", { name: "Table of Contents" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Close Table of Contents" }));
+    expect(screen.queryByRole("dialog", { name: "Table of Contents" })).toBeNull();
+
+    await user.click(trigger);
+    fireEvent.mouseDown(document.querySelector(".contents-backdrop")!);
+    expect(screen.queryByRole("dialog", { name: "Table of Contents" })).toBeNull();
+
+    await user.click(trigger);
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog", { name: "Table of Contents" })).toBeNull();
+
+    await user.click(trigger);
+    await user.click(screen.getByRole("link", { name: /Second hero/ }));
+    expect(window.location.hash).toBe("#page-second");
+    expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalledWith({ behavior: "auto", block: "start" });
+    expect(screen.queryByRole("dialog", { name: "Table of Contents" })).toBeNull();
+  });
+
+  it("restores direct section links, browser navigation, and persisted editorial block order", async () => {
     window.history.replaceState(null, "", "#page-second");
     render(<SafariJournalRenderer pages={pages} media={media} />);
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Second hero" })).toBeInTheDocument());
-    expect(document.querySelector(".page-position")).toHaveTextContent("02 / 02");
+    expect(document.getElementById("page-second")).toBeInTheDocument();
+    expect(document.querySelectorAll(".safari-spread")).toHaveLength(2);
+    await userEvent.click(screen.getByRole("button", { name: "Open Table of Contents" }));
+    await waitFor(() => expect(screen.getByRole("link", { name: /Second hero/ })).toHaveAttribute("aria-current", "location"));
 
     window.history.pushState(null, "", "#page-first");
     window.dispatchEvent(new HashChangeEvent("hashchange"));
-    await waitFor(() => expect(screen.getByRole("heading", { name: "First hero" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Table of Contents" })).toBeNull());
     const heading = screen.getByRole("heading", { name: "First story" });
     const paragraph = screen.getByText("First paragraph");
     const carousel = screen.getByRole("region", { name: "Page image carousel" });
     expect(heading.compareDocumentPosition(paragraph) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(paragraph.compareDocumentPosition(carousel) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("tracks the visible spread with IntersectionObserver and highlights its contents entry", async () => {
+    let notify: IntersectionObserverCallback = () => undefined;
+    const disconnect = vi.fn();
+    class Observer {
+      constructor(callback: IntersectionObserverCallback) { notify = callback; }
+      observe() {}
+      unobserve() {}
+      disconnect = disconnect;
+      takeRecords() { return []; }
+      root = null;
+      rootMargin = "";
+      thresholds = [0];
+    }
+    vi.stubGlobal("IntersectionObserver", Observer);
+    render(<SafariJournalRenderer pages={pages} media={media} />);
+    const second = document.getElementById("page-second")!;
+    notify([{ target: second, isIntersecting: true, boundingClientRect: { top: 150 } } as unknown as IntersectionObserverEntry], {} as IntersectionObserver);
+    await userEvent.click(screen.getByRole("button", { name: "Open Table of Contents" }));
+    expect(screen.getByRole("link", { name: /Second hero/ })).toHaveAttribute("aria-current", "location");
+    expect(screen.getByRole("link", { name: /First hero/ })).not.toHaveAttribute("aria-current");
+    cleanup();
+    expect(disconnect).toHaveBeenCalled();
   });
 
   it("retains subsection metadata in draft preview while suppressing only the public label", () => {
